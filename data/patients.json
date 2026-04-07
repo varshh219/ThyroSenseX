@@ -1,0 +1,56 @@
+{
+  "patients": [
+    {
+      "id": "TSX-2026-0001",
+      "name": "Varsh",
+      "age": 21,
+      "gender": "Female",
+      "phone": "7854129630",
+      "address": "Blore",
+      "created": "19 Mar 2026 21:38",
+      "scans": [
+        {
+          "date": "19 Mar 2026 21:39",
+          "prediction": "Normal",
+          "confidence": 69.0,
+          "probabilities": {
+            "Normal": 69.0,
+            "Hypothyroidism": 22.0,
+            "Hyperthyroidism": 9.0
+          }
+        },
+        {
+          "date": "19 Mar 2026 21:42",
+          "prediction": "Normal",
+          "confidence": 69.0,
+          "probabilities": {
+            "Normal": 69.0,
+            "Hypothyroidism": 22.0,
+            "Hyperthyroidism": 9.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "TSX-2026-0002",
+      "name": "KT",
+      "age": 20,
+      "gender": "Female",
+      "phone": "7845129630",
+      "address": "shivamogga",
+      "created": "04 Apr 2026 11:40",
+      "scans": [
+        {
+          "date": "04 Apr 2026 11:40",
+          "prediction": "Normal",
+          "confidence": 69.0,
+          "probabilities": {
+            "Normal": 69.0,
+            "Hypothyroidism": 22.0,
+            "Hyperthyroidism": 9.0
+          }
+        }
+      ]
+    }
+  ]
+}
