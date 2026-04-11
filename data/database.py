@@ -1,103 +1,125 @@
-import json
+import psycopg2
+import psycopg2.extras
+import bcrypt
 import os
-import uuid
 from datetime import datetime
+from dotenv import load_dotenv
 
+load_dotenv()
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "patients.json")
+# ── Connect to PostgreSQL ────────────────────────────────────
+def get_connection():
+    return psycopg2.connect(
+        host     = os.getenv("DB_HOST", "localhost"),
+        port     = os.getenv("DB_PORT", 5432),
+        dbname   = os.getenv("DB_NAME", "thyrosensex_db"),
+        user     = os.getenv("DB_USER", "postgres"),
+        password = os.getenv("DB_PASSWORD", "")
+    )
 
-
-def _load():
-    """Load database from JSON file."""
-    if not os.path.exists(DB_PATH):
-        _save({"patients": []})
-    with open(DB_PATH, "r") as f:
-        return json.load(f)
-
-
-def _save(data):
-    """Save database to JSON file."""
-    with open(DB_PATH, "w") as f:
-        json.dump(data, f, indent=2)
-
-
-def generate_patient_id():
-    """Generate unique patient ID like TSX-2026-0001."""
-    db = _load()
-    count = len(db["patients"]) + 1
-    year  = datetime.now().year
-    return f"TSX-{year}-{count:04d}"
-
-
-def register_patient(name, age, gender, phone, address):
-    """
-    Register a new patient.
-    Returns the new patient dict.
-    """
-    db = _load()
-
-    patient = {
-        "id":        generate_patient_id(),
-        "name":      name.strip(),
-        "age":       int(age),
-        "gender":    gender,
-        "phone":     phone.strip(),
-        "address":   address.strip(),
-        "created":   datetime.now().strftime("%d %b %Y %H:%M"),
-        "scans":     [],
-    }
-
-    db["patients"].append(patient)
-    _save(db)
-    print(f"✓ Patient registered: {patient['id']} — {patient['name']}")
-    return patient
-
-
-def get_all_patients():
-    """Return list of all patients."""
-    db = _load()
-    return db["patients"]
-
-
-def search_patients(query):
-    """
-    Search patients by name or ID.
-    Returns list of matching patients.
-    """
-    db     = _load()
-    query  = query.lower().strip()
-    return [
-        p for p in db["patients"]
-        if query in p["name"].lower()
-        or query in p["id"].lower()
-    ]
-
-
-def get_patient_by_id(patient_id):
-    """Get a single patient by ID."""
-    db = _load()
-    for p in db["patients"]:
-        if p["id"] == patient_id:
-            return p
+# ── Doctor Authentication ────────────────────────────────────
+def verify_doctor(username, password):
+    """Returns doctor dict if valid, None if invalid."""
+    conn = get_connection()
+    cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute(
+        "SELECT * FROM doctors WHERE username = %s", (username,)
+    )
+    doctor = cur.fetchone()
+    conn.close()
+    if doctor and bcrypt.checkpw(
+        password.encode(), doctor['password_hash'].encode()
+    ):
+        return dict(doctor)
     return None
 
+def register_doctor(username, password, full_name, email):
+    """Register a new doctor with hashed password."""
+    password_hash = bcrypt.hashpw(
+        password.encode(), bcrypt.gensalt()
+    ).decode()
+    conn = get_connection()
+    cur  = conn.cursor()
+    cur.execute(
+        """INSERT INTO doctors (username, password_hash, full_name, email)
+           VALUES (%s, %s, %s, %s) RETURNING id""",
+        (username, password_hash, full_name, email)
+    )
+    doctor_id = cur.fetchone()[0]
+    conn.commit()
+    conn.close()
+    return doctor_id
 
-def save_scan_result(patient_id, result):
-    """
-    Save a scan result to patient's history.
-    result: dict with prediction, confidence, features etc.
-    """
-    db = _load()
-    for p in db["patients"]:
-        if p["id"] == patient_id:
-            scan = {
-                "date":       datetime.now().strftime("%d %b %Y %H:%M"),
-                "prediction": result.get("prediction"),
-                "confidence": result.get("confidence"),
-                "probabilities": result.get("probabilities", {}),
-            }
-            p["scans"].append(scan)
-            _save(db)
-            print(f"✓ Scan saved for patient {patient_id}")
-            return
-    print(f"✗ Patient {patient_id} not found")
+# ── Patient Operations ───────────────────────────────────────
+def generate_patient_id():
+    conn = get_connection()
+    cur  = conn.cursor()
+    cur.execute('SELECT COUNT(*) FROM patients')
+    count = cur.fetchone()[0] + 1
+    conn.close()
+    return f'TSX-{datetime.now().year}-{count:04d}'
+
+def register_patient(name, age, gender, phone, email, address, doctor_id):
+    patient_id = generate_patient_id()
+    conn = get_connection()
+    cur  = conn.cursor()
+    cur.execute(
+        """INSERT INTO patients
+           (patient_id, name, age, gender, phone, email, address, created_by)
+           VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
+        (patient_id, name, age, gender, phone, email, address, doctor_id)
+    )
+    conn.commit()
+    conn.close()
+    return {'id': patient_id, 'name': name, 'age': age,
+            'gender': gender, 'phone': phone, 'email': email}
+
+def search_patients(query):
+    conn = get_connection()
+    cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute(
+        """SELECT * FROM patients
+           WHERE LOWER(name) LIKE %s OR patient_id LIKE %s
+           ORDER BY created_at DESC""",
+        (f'%{query.lower()}%', f'%{query}%')
+    )
+    results = [dict(r) for r in cur.fetchall()]
+    conn.close()
+    return results
+
+def get_all_patients():
+    conn = get_connection()
+    cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute('SELECT * FROM patients ORDER BY created_at DESC')
+    results = [dict(r) for r in cur.fetchall()]
+    conn.close()
+    return results
+
+def save_scan_result(patient_id, doctor_id, result):
+    import json
+    conn = get_connection()
+    cur  = conn.cursor()
+    cur.execute(
+        """INSERT INTO scans
+           (patient_id, doctor_id, prediction, confidence,
+            probabilities, features)
+           VALUES (%s,%s,%s,%s,%s,%s)""",
+        (patient_id, doctor_id,
+         result.get('prediction'),
+         result.get('confidence'),
+         json.dumps(result.get('probabilities', {})),
+         json.dumps(result.get('features', {})))
+    )
+    conn.commit()
+    conn.close()
+
+def get_patient_scans(patient_id):
+    conn = get_connection()
+    cur  = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute(
+        "SELECT * FROM scans WHERE patient_id=%s ORDER BY scan_date DESC",
+        (patient_id,)
+    )
+    results = [dict(r) for r in cur.fetchall()]
+    conn.close()
+    return results

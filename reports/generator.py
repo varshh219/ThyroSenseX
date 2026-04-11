@@ -34,7 +34,8 @@ def get_prediction_color(prediction):
 def generate_report(
     result: dict,
     output_dir="reports/output",
-    patient: dict = None
+    patient: dict = None,
+    doctor: dict = None
 ) -> str:
     """
     Generates a PDF diagnostic report.
