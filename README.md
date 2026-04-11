@@ -3,7 +3,7 @@
 1. Clone the repository:
 
 ```bash
-git clone <your-github-link>
+git clone https://github.com/varshh219/ThyroSenseX
 cd ThyroSenseX
 ```
 
