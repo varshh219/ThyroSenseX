@@ -2,62 +2,22 @@ import os
 from datetime import datetime
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer,
-    Table, TableStyle, HRFlowable
+    Table, TableStyle
 )
 
-
-# ── Color palette ──────────────────────────────────────────────
-COLOR_BG        = colors.HexColor("#0a0e14")
-COLOR_ACCENT    = colors.HexColor("#4f8dff")
-COLOR_GREEN     = colors.HexColor("#3ddc97")
-COLOR_YELLOW    = colors.HexColor("#f0c040")
-COLOR_RED       = colors.HexColor("#ff4f5e")
-COLOR_TEXT      = colors.HexColor("#e8edf7")
-COLOR_MUTED     = colors.HexColor("#7a90b8")
-COLOR_CARD      = colors.HexColor("#161c28")
-COLOR_BORDER    = colors.HexColor("#1e2d45")
-COLOR_WHITE     = colors.white
-
-
-def get_prediction_color(prediction):
-    return {
-        "Normal":          COLOR_GREEN,
-        "Hypothyroidism":  COLOR_YELLOW,
-        "Hyperthyroidism": COLOR_RED,
-    }.get(prediction, COLOR_TEXT)
-
-
-def generate_report(
-    result: dict,
-    output_dir="reports/output",
-    patient: dict = None,
-    doctor: dict = None
-) -> str:
-    """
-    Generates a PDF diagnostic report.
-
-    Args:
-        result    : dict with prediction, confidence, probabilities
-        output_dir: folder to save the PDF
-        patient   : dict with patient details (optional)
-
-    Returns:
-        path to the saved PDF file
-    """
+# ── MAIN FUNCTION ─────────────────────────────────────
+def generate_report(result, output_dir="reports/output", patient=None, doctor=None):
 
     os.makedirs(output_dir, exist_ok=True)
 
-    # ── File name ──────────────────────────────────────
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    pid       = patient.get("id", "UNKNOWN") if patient else "UNKNOWN"
-    filename  = f"ThyroSenseX_{pid}_{timestamp}.pdf"
-    filepath  = os.path.join(output_dir, filename)
+    pid = patient.get("id", "UNKNOWN") if patient else "UNKNOWN"
+    filepath = os.path.join(output_dir, f"ThyroSenseX_{pid}_{timestamp}.pdf")
 
-    # ── Document setup ─────────────────────────────────
     doc = SimpleDocTemplate(
         filepath,
         pagesize=A4,
@@ -67,240 +27,80 @@ def generate_report(
         bottomMargin=2*cm,
     )
 
-    # ── Styles ─────────────────────────────────────────
+    # ── STYLES (SIMPLE) ─────────────────────────────
     style_title = ParagraphStyle(
-        "title",
-        fontSize=22,
-        fontName="Helvetica-Bold",
-        textColor=COLOR_ACCENT,
-        spaceAfter=4,
+        "title", fontSize=18, fontName="Helvetica-Bold",
+        textColor=colors.black, spaceAfter=10
     )
-    style_subtitle = ParagraphStyle(
-        "subtitle",
-        fontSize=11,
-        fontName="Helvetica",
-        textColor=COLOR_MUTED,
-        spaceAfter=12,
-    )
+
     style_section = ParagraphStyle(
-        "section",
-        fontSize=9,
-        fontName="Helvetica-Bold",
-        textColor=COLOR_MUTED,
-        spaceBefore=16,
-        spaceAfter=6,
-        letterSpacing=1.5,
-    )
-    style_warning = ParagraphStyle(
-        "warning",
-        fontSize=9,
-        fontName="Helvetica-Oblique",
-        textColor=COLOR_MUTED,
-        spaceAfter=6,
-        leading=14,
+        "section", fontSize=11, fontName="Helvetica-Bold",
+        textColor=colors.black, spaceBefore=12, spaceAfter=6
     )
 
-    # ── Content ────────────────────────────────────────
+    style_text = ParagraphStyle(
+        "text", fontSize=10, textColor=colors.black
+    )
+
     story = []
-    now   = datetime.now().strftime("%d %B %Y  %H:%M:%S")
 
-    # ── Header ────────────────────────────────────────
-    story.append(Paragraph("ThyroSenseX", style_title))
-    story.append(Paragraph(
-        "AI · IoT Based Non-Invasive Thyroid Detection System",
-        style_subtitle
-    ))
-    story.append(HRFlowable(
-        width="100%", thickness=1,
-        color=COLOR_BORDER, spaceAfter=12
-    ))
+    now = datetime.now().strftime("%d %B %Y, %H:%M")
 
-    # ── Patient + Session info ─────────────────────────
-    story.append(Paragraph("PATIENT & SESSION INFORMATION", style_section))
+    # ── HEADER ─────────────────────────────────────
+    story.append(Paragraph("AI-Based Thyroid Detection Report", style_title))
+
+    # ── PATIENT DETAILS ────────────────────────────
+    story.append(Paragraph("Patient Details", style_section))
+
+    data = []
 
     if patient:
-        session_data = [
-            ["Patient Name",  patient.get("name",    "—")],
-            ["Patient ID",    patient.get("id",      "—")],
-            ["Age / Gender",  f"{patient.get('age', '—')} yrs  ·  "
-                              f"{patient.get('gender', '—')}"],
-            ["Phone",         patient.get("phone",   "—")],
-            ["Address",       patient.get("address", "—")],
-            ["Date / Time",   now],
-            ["Device ID",     result.get("device_id",    "TSX-RPZ2-0042")],
-            ["Model Version", result.get("model_version","v2.1.4")],
-            ["Scan Duration", result.get("scan_duration","43.7 s")],
-        ]
-    else:
-        session_data = [
-            ["Date / Time",   now],
-            ["Device ID",     result.get("device_id",    "TSX-RPZ2-0042")],
-            ["Model Version", result.get("model_version","v2.1.4")],
-            ["Scan Duration", result.get("scan_duration","43.7 s")],
-        ]
+        data.extend([
+            ["Name", patient.get("name", "—")],
+            ["Patient ID", patient.get("id", "—")],
+            ["Age/Gender", f"{patient.get('age')} / {patient.get('gender')}"],
+            ["Phone", patient.get("phone", "—")],
+        ])
 
-    session_table = Table(session_data, colWidths=[5*cm, 12*cm])
-    session_table.setStyle(TableStyle([
-        ("BACKGROUND",     (0, 0), (-1, -1), COLOR_CARD),
-        ("TEXTCOLOR",      (0, 0), (0, -1),  COLOR_MUTED),
-        ("TEXTCOLOR",      (1, 0), (1, -1),  COLOR_TEXT),
-        ("FONTNAME",       (0, 0), (-1, -1), "Helvetica"),
-        ("FONTSIZE",       (0, 0), (-1, -1), 10),
-        ("ROWBACKGROUNDS", (0, 0), (-1, -1), [COLOR_CARD, COLOR_BG]),
-        ("TOPPADDING",     (0, 0), (-1, -1), 8),
-        ("BOTTOMPADDING",  (0, 0), (-1, -1), 8),
-        ("LEFTPADDING",    (0, 0), (-1, -1), 12),
-        ("GRID",           (0, 0), (-1, -1), 0.5, COLOR_BORDER),
+    if doctor:
+        data.append(["Doctor", doctor.get("full_name", "—")])
+
+    data.append(["Date", now])
+
+    table = Table(data, colWidths=[5*cm, 11*cm])
+    table.setStyle(TableStyle([
+        ("GRID", (0,0), (-1,-1), 0.5, colors.black),
     ]))
-    story.append(session_table)
+    story.append(table)
 
-    # ── Prediction result ──────────────────────────────
-    story.append(Paragraph("DIAGNOSTIC RESULT", style_section))
+    # ── RESULT ─────────────────────────────────────
+    story.append(Paragraph("Result", style_section))
 
-    prediction = result.get("prediction", "Unknown")
-    confidence = result.get("confidence", 0.0)
-    pred_color = get_prediction_color(prediction)
+    prediction = result.get("prediction", "—")
+    confidence = result.get("confidence", 0)
 
-    risk_map = {
-        "Normal":          ("Low",      COLOR_GREEN),
-        "Hypothyroidism":  ("Moderate", COLOR_YELLOW),
-        "Hyperthyroidism": ("High",     COLOR_RED),
-    }
-    risk_level, risk_color = risk_map.get(
-        prediction, ("Unknown", COLOR_MUTED)
-    )
+    if confidence <= 1:
+        confidence *= 100
 
-    pred_data = [
-        ["Prediction",     prediction],
-        ["Confidence",     f"{confidence:.1f}%"],
-        ["Risk Level",     risk_level],
-        ["Recommendation", "Consult an endocrinologist for confirmation"],
-    ]
+    result_table = Table([
+        ["Prediction", prediction],
+        ["Confidence", f"{confidence:.1f}%"]
+    ], colWidths=[5*cm, 11*cm])
 
-    pred_table = Table(pred_data, colWidths=[5*cm, 12*cm])
-    pred_table.setStyle(TableStyle([
-        ("BACKGROUND",    (0, 0), (-1, -1), COLOR_CARD),
-        ("TEXTCOLOR",     (0, 0), (0, -1),  COLOR_MUTED),
-        ("TEXTCOLOR",     (1, 0), (1, -1),  COLOR_TEXT),
-        ("TEXTCOLOR",     (1, 0), (1, 0),   pred_color),
-        ("TEXTCOLOR",     (1, 1), (1, 1),   pred_color),
-        ("TEXTCOLOR",     (1, 2), (1, 2),   risk_color),
-        ("TEXTCOLOR",     (1, 3), (1, 3),   COLOR_ACCENT),
-        ("FONTNAME",      (0, 0), (-1, -1), "Helvetica"),
-        ("FONTNAME",      (1, 0), (1, 0),   "Helvetica-Bold"),
-        ("FONTSIZE",      (0, 0), (-1, -1), 10),
-        ("FONTSIZE",      (1, 0), (1, 0),   13),
-        ("ROWBACKGROUNDS",(0, 0), (-1, -1), [COLOR_CARD, COLOR_BG]),
-        ("TOPPADDING",    (0, 0), (-1, -1), 8),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-        ("LEFTPADDING",   (0, 0), (-1, -1), 12),
-        ("GRID",          (0, 0), (-1, -1), 0.5, COLOR_BORDER),
+    result_table.setStyle(TableStyle([
+        ("GRID", (0,0), (-1,-1), 0.5, colors.black),
     ]))
-    story.append(pred_table)
+    story.append(result_table)
 
-    # ── Probability distribution ───────────────────────
-    story.append(Paragraph("PROBABILITY DISTRIBUTION", style_section))
+    # ── STATUS ─────────────────────────────────────
+    story.append(Spacer(1, 10))
 
-    probs     = result.get("probabilities", {
-        "Normal": 0, "Hypothyroidism": 0, "Hyperthyroidism": 0
-    })
-    prob_data = [["Condition", "Probability"]]
-    for name, pct in probs.items():
-        prob_data.append([name, f"{pct:.1f}%"])
-
-    prob_table = Table(prob_data, colWidths=[10*cm, 7*cm])
-    prob_table.setStyle(TableStyle([
-        ("BACKGROUND",    (0, 0), (-1, 0),  COLOR_ACCENT),
-        ("TEXTCOLOR",     (0, 0), (-1, 0),  COLOR_WHITE),
-        ("FONTNAME",      (0, 0), (-1, 0),  "Helvetica-Bold"),
-        ("BACKGROUND",    (0, 1), (-1, -1), COLOR_CARD),
-        ("TEXTCOLOR",     (0, 1), (-1, -1), COLOR_TEXT),
-        ("FONTNAME",      (0, 1), (-1, -1), "Helvetica"),
-        ("FONTSIZE",      (0, 0), (-1, -1), 10),
-        ("ROWBACKGROUNDS",(0, 1), (-1, -1), [COLOR_CARD, COLOR_BG]),
-        ("TOPPADDING",    (0, 0), (-1, -1), 8),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-        ("LEFTPADDING",   (0, 0), (-1, -1), 12),
-        ("ALIGN",         (1, 0), (1, -1),  "CENTER"),
-        ("GRID",          (0, 0), (-1, -1), 0.5, COLOR_BORDER),
-    ]))
-    story.append(prob_table)
-
-    # ── Extracted features ─────────────────────────────
-    story.append(Paragraph("EXTRACTED FEATURES", style_section))
-
-    features  = result.get("features", {
-        "Pitch":        "148 Hz",
-        "Jitter":       "1.2%",
-        "Shimmer":      "3.8%",
-        "HNR":          "18.4 dB",
-        "Thermal Mean": "34.5 °C",
-        "Thermal Max":  "35.2 °C",
-        "Thermal Min":  "33.1 °C",
-        "Facial Flags": "4 of 10",
-    })
-    feat_data = [["Feature", "Value"]]
-    for k, v in features.items():
-        feat_data.append([k, str(v)])
-
-    feat_table = Table(feat_data, colWidths=[10*cm, 7*cm])
-    feat_table.setStyle(TableStyle([
-        ("BACKGROUND",    (0, 0), (-1, 0),  COLOR_CARD),
-        ("TEXTCOLOR",     (0, 0), (-1, 0),  COLOR_ACCENT),
-        ("FONTNAME",      (0, 0), (-1, 0),  "Helvetica-Bold"),
-        ("BACKGROUND",    (0, 1), (-1, -1), COLOR_BG),
-        ("TEXTCOLOR",     (0, 1), (-1, -1), COLOR_TEXT),
-        ("FONTNAME",      (0, 1), (-1, -1), "Helvetica"),
-        ("FONTSIZE",      (0, 0), (-1, -1), 10),
-        ("ROWBACKGROUNDS",(0, 1), (-1, -1), [COLOR_CARD, COLOR_BG]),
-        ("TOPPADDING",    (0, 0), (-1, -1), 8),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-        ("LEFTPADDING",   (0, 0), (-1, -1), 12),
-        ("GRID",          (0, 0), (-1, -1), 0.5, COLOR_BORDER),
-    ]))
-    story.append(feat_table)
-
-    # ── Signature line ─────────────────────────────────
-    story.append(Spacer(1, 1*cm))
-    story.append(HRFlowable(
-        width="100%", thickness=0.5,
-        color=COLOR_BORDER, spaceAfter=8
-    ))
-
-    sig_data = [
-        ["Reviewed by:", "Signature:"],
-        ["", ""],
-        ["Doctor / Clinician Name", "________________________"],
-    ]
-    sig_table = Table(sig_data, colWidths=[8.5*cm, 8.5*cm])
-    sig_table.setStyle(TableStyle([
-        ("TEXTCOLOR",    (0, 0), (-1, -1), COLOR_MUTED),
-        ("FONTNAME",     (0, 0), (-1, -1), "Helvetica"),
-        ("FONTSIZE",     (0, 0), (-1, -1), 9),
-        ("TOPPADDING",   (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING",(0, 0), (-1, -1), 4),
-    ]))
-    story.append(sig_table)
-
-    # ── Disclaimer ─────────────────────────────────────
-    story.append(Spacer(1, 0.5*cm))
-    story.append(HRFlowable(
-        width="100%", thickness=0.5,
-        color=COLOR_BORDER, spaceAfter=8
-    ))
     story.append(Paragraph(
-        "⚠ DISCLAIMER: This report is generated by an AI-based screening "
-        "tool and is intended for preliminary screening purposes only. "
-        "Results must be confirmed by a licensed medical professional. "
-        "Do not use this report as a substitute for professional medical advice.",
-        style_warning
-    ))
-    story.append(Paragraph(
-        f"Generated by ThyroSenseX v2.1.4  ·  {now}",
-        style_warning
+        f"Status: The patient shows indications of {prediction}.",
+        style_text
     ))
 
-    # ── Build PDF ──────────────────────────────────────
     doc.build(story)
-    print(f"✓ PDF saved → {filepath}")
+
+    print("PDF saved:", filepath)
     return filepath

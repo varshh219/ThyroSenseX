@@ -1,95 +1,123 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QPushButton
+    QLabel, QPushButton, QFrame
 )
 from PyQt5.QtCore import Qt
+
+
+def make_card():
+    f = QFrame()
+    f.setObjectName("card")
+    return f
 
 
 class WelcomeScreen(QWidget):
     def __init__(self, go_to):
         super().__init__()
         self.go_to = go_to
+        self._current_patient = None
         self._build_ui()
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
         layout.setAlignment(Qt.AlignCenter)
-        layout.setSpacing(10)
+        layout.setSpacing(14)
         layout.setContentsMargins(40, 40, 40, 40)
 
-        # ── Title ──────────────────────────────────────
+        # ── Title ─────────────────────────
         title_row = QHBoxLayout()
         title_row.setAlignment(Qt.AlignCenter)
 
-        t1 = QLabel("Thyro")
-        t1.setStyleSheet("font-size:28px; font-weight:bold; color:#e8edf7;")
+        title = QLabel(
+            '<span style="color:#e6edf3;">Thyro</span>'
+            '<span style="color:#58a6ff;">Sense</span>'
+            '<span style="color:#e6edf3;">X</span>'
+        )
+        title.setStyleSheet("font-size:30px; font-weight:bold;")
+        title_row.addWidget(title)
 
-        t2 = QLabel("Sense")
-        t2.setStyleSheet("font-size:28px; font-weight:bold; color:#4f8dff;")
+        # ── Patient Card ───────────────────
+        self.patient_card = make_card()
+        pc_layout = QVBoxLayout(self.patient_card)
 
-        t3 = QLabel("X")
-        t3.setStyleSheet("font-size:28px; font-weight:bold; color:#e8edf7;")
-
-        title_row.addWidget(t1)
-        title_row.addWidget(t2)
-        title_row.addWidget(t3)
-
-        # ── Tagline ────────────────────────────────────
-        self.tag = QLabel("AI · IoT THYROID DETECTION SYSTEM")
-        self.tag.setObjectName("section")
+        self.tag = QLabel("NO PATIENT SELECTED")
         self.tag.setAlignment(Qt.AlignCenter)
+        self.tag.setStyleSheet(
+            "font-size:13px; color:#ff4f5e; font-weight:bold;"
+        )
 
-        # ── Description ────────────────────────────────
+        pc_layout.addWidget(self.tag)
+
+        # ── Description ────────────────────
         desc = QLabel(
             "Non-invasive thyroid screening using multimodal AI.\n"
-            "Position yourself in front of the device to begin."
+            "Ensure proper lighting and face the device directly."
         )
         desc.setWordWrap(True)
         desc.setAlignment(Qt.AlignCenter)
-        desc.setStyleSheet("color:#4a5a78; font-size:12px; line-height:1.6;")
+        desc.setStyleSheet(
+            "color:#8b949e; font-size:12px;"
+        )
 
-        # ── Badges ─────────────────────────────────────
+        # ── Badges ─────────────────────────
         badges = QHBoxLayout()
         badges.setAlignment(Qt.AlignCenter)
-        for text, color in [
-            ("Facial Analysis",  "#1a2a4a"),
-            ("Voice Biomarkers", "#0d2e28"),
-            ("Thermal Imaging",  "#2e1f0a"),
-        ]:
+
+        for text in ["Facial", "Voice", "Thermal"]:
             b = QLabel(text)
             b.setStyleSheet(
-                f"background:{color}; border-radius:12px;"
-                f"padding:4px 12px; font-size:11px; color:#7a90b8;"
+                "background:#1e2d45; border-radius:14px;"
+                "padding:5px 14px; font-size:11px;"
             )
             badges.addWidget(b)
 
-        # ── Button ─────────────────────────────────────
-        btn = QPushButton("Begin Scan")
-        btn.setObjectName("primary")
-        btn.setFixedWidth(200)
-        btn.clicked.connect(lambda: self.go_to("capture"))
+        # ── Button ─────────────────────────
+        self.btn_start = QPushButton("Begin Scan")
+        self.btn_start.setObjectName("primary")
+        self.btn_start.setFixedWidth(220)
+        self.btn_start.setEnabled(False)
+        self.btn_start.clicked.connect(self._start_scan)
 
-        # ── Hint ───────────────────────────────────────
-        hint = QLabel("Est. scan time: ~45 seconds  ·  No physical contact required")
+        # ── Hint ───────────────────────────
+        hint = QLabel("⏱ ~45 sec · No contact required")
         hint.setAlignment(Qt.AlignCenter)
-        hint.setStyleSheet("color:#4a5a78; font-size:10px;")
+        hint.setStyleSheet("color:#6e7681; font-size:10px;")
 
-        # ── Assemble ───────────────────────────────────
+        # ── Layout ─────────────────────────
         layout.addStretch()
         layout.addLayout(title_row)
-        layout.addWidget(self.tag)      # ← fixed
-        layout.addSpacing(12)
+        layout.addWidget(self.patient_card)
         layout.addWidget(desc)
-        layout.addSpacing(8)
         layout.addLayout(badges)
         layout.addSpacing(20)
-        layout.addWidget(btn, alignment=Qt.AlignCenter)
-        layout.addSpacing(6)
+        layout.addWidget(self.btn_start, alignment=Qt.AlignCenter)
         layout.addWidget(hint)
         layout.addStretch()
 
+    # ── SET PATIENT ───────────────────────
     def set_patient(self, patient):
-        """Show patient name on welcome screen."""
+        self._current_patient = patient
+
+        if not patient:
+            self.tag.setText("NO PATIENT SELECTED")
+            self.btn_start.setEnabled(False)
+            return
+
+        pid = patient.get("patient_id", patient.get("id", "—"))
+
         self.tag.setText(
-            f"PATIENT: {patient['name'].upper()}  ·  {patient['id']}"
+            f"{patient.get('name','').upper()}  ·  {pid}"
         )
+
+        # Enable scan
+        self.btn_start.setEnabled(True)
+
+    # ── START SCAN ────────────────────────
+    def _start_scan(self):
+        if not self._current_patient:
+            return
+
+        print(f"[SCAN] Starting for {self._current_patient.get('name')}")
+
+        # Go to capture screen
+        self.go_to("capture")

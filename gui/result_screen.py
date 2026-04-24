@@ -1,13 +1,23 @@
 from PyQt5.QtWidgets import (
-QWidget, QVBoxLayout, QHBoxLayout,
-QLabel, QPushButton, QProgressBar, QFrame
+    QWidget, QVBoxLayout, QHBoxLayout,
+    QLabel, QPushButton, QProgressBar, QFrame
 )
 from PyQt5.QtCore import Qt
+
 
 def make_card():
     f = QFrame()
     f.setObjectName("card")
     return f
+
+
+RESULT_META = {
+    "Normal":          ("#3ddc97", "Low"),
+    "Hypothyroidism":  ("#f0c040", "Moderate"),
+    "Hyperthyroidism": ("#ff4f5e", "High"),
+    "Error":           ("#8b949e", "—"),
+}
+
 
 class ResultScreen(QWidget):
     def __init__(self, go_to):
@@ -17,70 +27,82 @@ class ResultScreen(QWidget):
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 24, 24, 24)
 
-        lbl = QLabel("STEP 3 OF 3 — RESULTS")
-        title = QLabel("Diagnostic Report")
+        title = QLabel("Diagnostic Result")
+        title.setObjectName("screen_title")
 
-        hero = make_card()
-        hero_layout = QHBoxLayout(hero)
-
-        self.pred_name = QLabel("—")
-        self.pred_name.setStyleSheet("font-size:22px; font-weight:bold;")
-
-        self.conf_lbl = QLabel("Confidence: —")
-
-        info = QVBoxLayout()
-        info.addWidget(self.pred_name)
-        info.addWidget(self.conf_lbl)
-
-        hero_layout.addLayout(info)
-
-        # Probabilities
-        self.prob_bars = {}
-        for name in ["Normal", "Hypothyroidism", "Hyperthyroidism"]:
-            row = QHBoxLayout()
-
-            label = QLabel(name)
-
-            bar = QProgressBar()
-            bar.setMaximum(100)
-
-            pct = QLabel("0%")
-
-            row.addWidget(label)
-            row.addWidget(bar)
-            row.addWidget(pct)
-
-            layout.addLayout(row)
-            self.prob_bars[name] = (bar, pct)
-
-        btn_report = QPushButton("View Report")
-        btn_report.clicked.connect(lambda: self.go_to("report"))
-
-        btn_new = QPushButton("New Scan")
-        btn_new.clicked.connect(lambda: self.go_to("welcome"))
-
-        layout.addWidget(lbl)
         layout.addWidget(title)
-        layout.addWidget(hero)
-        layout.addWidget(btn_report)
-        layout.addWidget(btn_new)
 
-    def update_result(self, prediction, confidence, probabilities):
-        colors = {
-            "Normal": "#3ddc97",
-            "Hypothyroidism": "#f0c040",
-            "Hyperthyroidism": "#ff4f5e"
-        }
+        # ── Prediction ─────────────────────
+        self.pred_lbl = QLabel("—")
+        self.pred_lbl.setAlignment(Qt.AlignCenter)
 
-        color = colors.get(prediction, "#ffffff")
+        self.risk_lbl = QLabel("Risk: —")
+        self.risk_lbl.setAlignment(Qt.AlignCenter)
 
-        self.pred_name.setText(prediction)
-        self.pred_name.setStyleSheet(f"font-size:22px; color:{color};")
+        self.conf_bar = QProgressBar()
+        self.conf_bar.setRange(0, 100)
 
-        self.conf_lbl.setText(f"Confidence: {confidence:.1f}%")
+        layout.addWidget(self.pred_lbl)
+        layout.addWidget(self.risk_lbl)
+        layout.addWidget(self.conf_bar)
 
-        for name, (bar, lbl) in self.prob_bars.items():
-            val = int(probabilities.get(name, 0))
-            bar.setValue(val)
-            lbl.setText(f"{val}%")
+        # ── Details ────────────────────────
+        self.details = {}
+
+        for key in ["Mean Temp", "Temp Range", "Image", "Audio"]:
+            row = QHBoxLayout()
+            k = QLabel(key)
+            v = QLabel("—")
+            row.addWidget(k)
+            row.addStretch()
+            row.addWidget(v)
+            layout.addLayout(row)
+            self.details[key] = v
+
+        # Buttons
+        btn = QPushButton("Full Report")
+        btn.clicked.connect(lambda: self.go_to("report"))
+
+        layout.addWidget(btn)
+
+    # ── UPDATE RESULT ─────────────────────
+    def update_result(self, result):
+        prediction = result.get("prediction", "Unknown")
+        confidence = result.get("confidence", 0)
+
+        if confidence <= 1:
+            confidence *= 100
+
+        color, risk = RESULT_META.get(prediction, ("#fff", "—"))
+
+        self.pred_lbl.setText(prediction)
+        self.pred_lbl.setStyleSheet(f"font-size:24px; color:{color};")
+
+        self.risk_lbl.setText(f"Risk: {risk}")
+
+        self.conf_bar.setValue(int(confidence))
+
+        # ── Features ─────────────────────
+        feat = result.get("features", {})
+
+        mean = feat.get("thermal_mean", "—")
+        tmin = feat.get("thermal_min", "—")
+        tmax = feat.get("thermal_max", "—")
+
+        self.details["Mean Temp"].setText(
+            f"{mean} °C" if mean != "—" else "—"
+        )
+
+        self.details["Temp Range"].setText(
+            f"{tmin} – {tmax} °C" if tmin != "—" else "—"
+        )
+
+        self.details["Image"].setText(feat.get("image", "—"))
+
+        audio_ok = feat.get("audio_ok", False)
+
+        self.details["Audio"].setText(
+            "✓ Recorded" if audio_ok else "⚠ Not captured"
+        )

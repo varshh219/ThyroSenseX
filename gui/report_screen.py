@@ -1,7 +1,6 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QPushButton, QFrame, QMessageBox,
-    QFileDialog
+    QLabel, QPushButton, QFrame, QMessageBox
 )
 from PyQt5.QtCore import Qt
 from datetime import datetime
@@ -16,282 +15,199 @@ def make_card(name="card"):
 class ReportScreen(QWidget):
     def __init__(self, go_to):
         super().__init__()
-        self.go_to            = go_to
-        self._current_result  = {}
+        self.go_to = go_to
+
+        self._current_result = {}
         self._current_patient = {}
-        self._current_doctor  = {}
+        self._current_doctor = {}
+        self._last_pdf_path = None
+
         self._build_ui()
 
+    # ── UI ───────────────────────────────────
     def _build_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        layout.setContentsMargins(12, 12, 12, 12)
+        layout.setSpacing(10)
 
-        # ── Status bar ─────────────────────────────────
-        status = QLabel("THYROSENSEX  ·  DIAGNOSTIC REPORT")
-        status.setObjectName("status_bar")
-        status.setFixedHeight(28)
+        title = QLabel("THYROSENSEX DIAGNOSTIC REPORT")
+        title.setAlignment(Qt.AlignCenter)
+        title.setStyleSheet(
+            "font-size:18px; font-weight:bold; color:#58a6ff;"
+        )
 
-        # ── Content ────────────────────────────────────
-        content = QWidget()
-        content_layout = QVBoxLayout(content)
-        content_layout.setContentsMargins(24, 20, 24, 20)
-        content_layout.setSpacing(12)
+        # ── Highlight ─────────────────────────
+        self.highlight = make_card()
+        hl_layout = QVBoxLayout(self.highlight)
 
-        # Header
-        lbl = QLabel("DIAGNOSTIC REPORT")
-        lbl.setObjectName("section")
-        title = QLabel("Session Summary")
-        title.setObjectName("screen_title")
+        self.prediction_label = QLabel("—")
+        self.prediction_label.setAlignment(Qt.AlignCenter)
 
-        # ── Report card ────────────────────────────────
+        self.conf_bg = QFrame()
+        self.conf_bg.setFixedHeight(8)
+
+        self.conf_fill = QFrame(self.conf_bg)
+        self.conf_fill.setFixedHeight(8)
+
+        hl_layout.addWidget(QLabel("Prediction Summary"))
+        hl_layout.addWidget(self.prediction_label)
+        hl_layout.addWidget(self.conf_bg)
+
+        # ── Details ──────────────────────────
         card = make_card()
         card_layout = QVBoxLayout(card)
-        card_layout.setContentsMargins(16, 14, 16, 14)
-        card_layout.setSpacing(0)
 
         self.row_values = {}
-        rows = [
-            ("Patient Name",      "—",                       "normal"),
-            ("Patient ID",        "—",                       "accent"),
-            ("Age / Gender",      "—",                       "normal"),
-            ("Phone",             "—",                       "normal"),
-            ("Date / Time",       "—",                       "normal"),
-            ("Doctor",            "—",                       "normal"),
-            ("Device ID",         "TSX-RPZ2-0042",           "normal"),
-            ("Model Version",     "v2.1.4",                  "normal"),
-            ("---", "", ""),
-            ("Prediction",        "—",                       "warning"),
-            ("Confidence",        "—",                       "warning"),
-            ("Risk Level",        "—",                       "warning"),
-            ("---", "", ""),
-            ("Facial Flags",      "—",                       "normal"),
-            ("Voice Anomalies",   "—",                       "normal"),
-            ("Thermal Anomalies", "—",                       "normal"),
-            ("Recommendation",    "Consult endocrinologist", "accent"),
-        ]
 
-        for key, val, style in rows:
-            if key == "---":
-                line = QFrame()
-                line.setFrameShape(QFrame.HLine)
-                line.setStyleSheet(
-                    "background:#21262d; border:none;"
-                    "max-height:1px; margin:6px 0;"
-                )
-                card_layout.addWidget(line)
-                continue
-
+        def add_row(key):
             row = QHBoxLayout()
-            row.setContentsMargins(0, 4, 0, 4)
 
             k = QLabel(key)
-            k.setStyleSheet("font-size:11px; color:#8b949e;")
+            k.setStyleSheet("color:#8b949e; font-size:11px;")
 
-            color = {
-                "normal":  "#e6edf3",
-                "warning": "#f0c040",
-                "accent":  "#1f6feb",
-            }.get(style, "#e6edf3")
-
-            v = QLabel(val)
-            v.setStyleSheet(
-                f"font-size:11px; color:{color}; font-weight:500;"
-            )
-            v.setAlignment(Qt.AlignRight)
+            v = QLabel("—")
+            v.setStyleSheet("color:#d1d9e0; font-size:11px;")
 
             row.addWidget(k)
             row.addStretch()
             row.addWidget(v)
+
             card_layout.addLayout(row)
             self.row_values[key] = v
 
-        # ── Warning ────────────────────────────────────
-        warning = QLabel(
-            "⚠  Screening tool only. "
-            "Confirm with a licensed medical professional."
-        )
-        warning.setWordWrap(True)
-        warning.setStyleSheet(
-            "color:#484f58; font-size:10px; padding:4px 0;"
-        )
+        rows = [
+            "Patient Name", "Patient ID", "Age / Gender",
+            "Phone", "Doctor", "Date / Time",
+            "Prediction", "Confidence", "Risk Level",
+            "Facial Flags", "Voice Anomalies", "Thermal Anomalies"
+        ]
 
-        # ── Buttons ────────────────────────────────────
+        for r in rows:
+            add_row(r)
+
+        warning = QLabel("⚠ Screening tool only. Consult a doctor.")
+        warning.setAlignment(Qt.AlignCenter)
+
+        # Buttons
         btn_row = QHBoxLayout()
-        btn_row.setSpacing(10)
 
         btn_save = QPushButton("Save PDF")
         btn_save.setObjectName("primary")
         btn_save.clicked.connect(self._save_pdf)
 
-        btn_send = QPushButton("Send to Patient")
-        btn_send.setObjectName("outline")
-        btn_send.clicked.connect(self._send_report)
-
         btn_new = QPushButton("New Scan")
-        btn_new.setObjectName("secondary")
         btn_new.clicked.connect(lambda: self.go_to("welcome"))
 
         btn_row.addWidget(btn_save)
-        btn_row.addWidget(btn_send)
         btn_row.addWidget(btn_new)
 
-        # ── Assemble content ───────────────────────────
-        content_layout.addWidget(lbl)
-        content_layout.addWidget(title)
-        content_layout.addWidget(card)
-        content_layout.addWidget(warning)
-        content_layout.addStretch()
-        content_layout.addLayout(btn_row)
+        layout.addWidget(title)
+        layout.addWidget(self.highlight)
+        layout.addWidget(card)
+        layout.addWidget(warning)
+        layout.addLayout(btn_row)
 
-        layout.addWidget(status)
-        layout.addWidget(content)
-
-    # ── Refresh with real data ─────────────────────────
+    # ── REFRESH ─────────────────────────────
     def refresh(self, result=None, patient=None, doctor=None):
-        now = datetime.now().strftime("%d %b %Y  %H:%M")
+        now = datetime.now().strftime("%d %b %Y %H:%M")
 
+        # Patient
         if patient:
             self._current_patient = patient
-            self._set("Patient Name",  patient.get("name", "—"))
-            self._set("Patient ID",    patient.get("patient_id", patient.get("id", "—")))
+            self._set("Patient Name", patient.get("name", "—"))
+            self._set("Patient ID", patient.get("patient_id", patient.get("id", "—")))
             self._set("Age / Gender",
-                f"{patient.get('age','—')} yrs  ·  {patient.get('gender','—')}")
+                      f"{patient.get('age','—')} · {patient.get('gender','—')}")
             self._set("Phone", patient.get("phone", "—"))
 
+        # Doctor
         if doctor:
             self._current_doctor = doctor
             self._set("Doctor", doctor.get("full_name", "—"))
 
         self._set("Date / Time", now)
 
-        if result is None:
+        if not result:
             return
 
         self._current_result = result
+
         prediction = result.get("prediction", "Unknown")
-        confidence = result.get("confidence", 0.0)
+        confidence = result.get("confidence", 0)
 
-        risk_map = {
-            "Normal":          ("Low",      "#3ddc97"),
-            "Hypothyroidism":  ("Moderate", "#f0c040"),
-            "Hyperthyroidism": ("High",     "#ff4f5e"),
-        }
-        risk, color = risk_map.get(prediction, ("Unknown", "#e6edf3"))
+        if confidence <= 1:
+            confidence *= 100
 
-        self._set_colored("Prediction", prediction, color)
-        self._set_colored("Confidence", f"{confidence:.1f}%", color)
-        self._set_colored("Risk Level", risk, color)
+        # Colors
+        if prediction == "Normal":
+            color = "#3ddc97"
+            risk = "Low"
+        elif prediction == "Hyperthyroid":
+            color = "#ff4f5e"
+            risk = "High"
+        else:
+            color = "#f0c040"
+            risk = "Moderate"
+
+        # Prediction UI
+        self.prediction_label.setText(prediction)
+        self.prediction_label.setStyleSheet(
+            f"font-size:22px; font-weight:bold; color:{color};"
+        )
+
+        # Confidence bar (FIXED)
+        total_width = 200
+        self.conf_bg.setFixedWidth(total_width)
+
+        fill_width = int((confidence / 100) * total_width)
+        self.conf_fill.setFixedWidth(max(fill_width, 5))
+        self.conf_fill.setStyleSheet(f"background:{color}; border-radius:4px;")
+
+        # Rows
+        self._set("Prediction", prediction)
+        self._set("Confidence", f"{confidence:.1f}%")
+        self._set("Risk Level", risk)
 
         # Features
         features = result.get("features", {})
-        self._set("Facial Flags",
-            str(features.get("Facial Flags", "—")))
-        self._set("Voice Anomalies",
-            f"Pitch: {features.get('Pitch','—')} Hz  "
-            f"Jitter: {features.get('Jitter','—')}%")
-        self._set("Thermal Anomalies",
-            f"Mean: {features.get('Thermal Mean','—')}°C  "
-            f"Max: {features.get('Thermal Max','—')}°C")
+
+        # Face
+        face_flag = "Detected" if features.get("face_area", 0) > 0 else "Not Detected"
+        self._set("Facial Flags", face_flag)
+
+        # Voice
+        pitch = features.get("pitch_mean", 0)
+        voice_text = f"Pitch: {pitch:.1f} Hz" if pitch > 0 else "No voice data"
+        self._set("Voice Anomalies", voice_text)
+
+        # Thermal
+        temp = features.get("thermal_mean", 0)
+        thermal_text = f"Mean: {temp:.1f} °C" if temp > 0 else "No thermal data"
+        self._set("Thermal Anomalies", thermal_text)
 
     def _set(self, key, value):
         if key in self.row_values:
             self.row_values[key].setText(str(value))
 
-    def _set_colored(self, key, value, color):
-        if key in self.row_values:
-            self.row_values[key].setText(str(value))
-            self.row_values[key].setStyleSheet(
-                f"font-size:11px; color:{color}; font-weight:500;"
-            )
-
-    # ── Save PDF ───────────────────────────────────────
+    # ── SAVE PDF ─────────────────────────────
     def _save_pdf(self):
         try:
             from reports.generator import generate_report
+
             path = generate_report(
                 self._current_result,
                 patient=self._current_patient,
                 doctor=self._current_doctor
             )
-            msg = QMessageBox(self)
-            msg.setWindowTitle("PDF Saved!")
-            msg.setText(f"Report saved to:\n{path}")
-            msg.setStyleSheet(
-                "QMessageBox { background:#0d1117; color:#e6edf3; }"
-                "QLabel { color:#e6edf3; font-size:12px; }"
-                "QPushButton { background:#1f6feb; color:white;"
-                "border-radius:6px; padding:6px 16px; }"
-            )
-            msg.exec_()
+
             self._last_pdf_path = path
 
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"PDF generation failed:\n{e}")
-
-    # ── Send to Patient ────────────────────────────────
-    def _send_report(self):
-        patient = self._current_patient
-        result  = self._current_result
-
-        if not patient:
-            QMessageBox.warning(self, "No Patient",
-                "No patient selected.")
-            return
-
-        email = patient.get("email", "")
-        phone = patient.get("phone", "")
-
-        if not email and not phone:
-            QMessageBox.warning(self, "No Contact",
-                "Patient has no email or phone number.")
-            return
-
-        # Save PDF first if not already saved
-        if not hasattr(self, '_last_pdf_path'):
-            self._save_pdf()
-
-        sent = []
-
-        # Send email
-        if email:
-            try:
-                from reports.email_sender import send_report_email
-                send_report_email(
-                    patient_email  = email,
-                    patient_name   = patient.get("name", "Patient"),
-                    pdf_path       = self._last_pdf_path,
-                    prediction     = result.get("prediction", "—")
-                )
-                sent.append(f"Email → {email}")
-            except Exception as e:
-                print(f"Email error: {e}")
-
-        # Send WhatsApp
-        if phone:
-            try:
-                from reports.whatsapp_sender import send_whatsapp_report
-                send_whatsapp_report(
-                    patient_phone  = phone,
-                    patient_name   = patient.get("name", "Patient"),
-                    prediction     = result.get("prediction", "—"),
-                    confidence     = result.get("confidence", 0.0)
-                )
-                sent.append(f"WhatsApp → {phone}")
-            except Exception as e:
-                print(f"WhatsApp error: {e}")
-
-        if sent:
-            msg = QMessageBox(self)
-            msg.setWindowTitle("Report Sent!")
-            msg.setText("Successfully sent to:\n" + "\n".join(sent))
-            msg.setStyleSheet(
-                "QMessageBox { background:#0d1117; color:#e6edf3; }"
-                "QLabel { color:#e6edf3; }"
-                "QPushButton { background:#1f6feb; color:white;"
-                "border-radius:6px; padding:6px 16px; }"
+            QMessageBox.information(
+                self,
+                "Saved",
+                f"PDF saved successfully!\n\n{path}"
             )
-            msg.exec_()
-        else:
-            QMessageBox.warning(self, "Send Failed",
-                "Could not send report. Check email/WhatsApp settings.")
+
+        except Exception as e:
+            print("PDF Error:", e)
+            QMessageBox.critical(self, "Error", "Failed to generate PDF")

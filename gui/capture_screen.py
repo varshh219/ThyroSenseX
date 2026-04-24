@@ -1,32 +1,22 @@
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
-    QLabel, QPushButton, QProgressBar, QFrame
+    QLabel, QPushButton, QFrame
 )
-from PyQt5.QtCore import Qt, QThread, pyqtSignal
-import time
+from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtGui import QPixmap, QImage
+
+import cv2
+import numpy as np
+from api.client import get_thermal_frame
+
+from api.client import (
+    get_camera_frame,
+    get_thermal_frame,
+    capture_image,
+    record_audio
+)
 
 
-# ── Background worker — runs sensors without freezing GUI ──────
-class ScanWorker(QThread):
-    progress = pyqtSignal(int, str)  # (step 0-5, message)
-    finished = pyqtSignal()
-
-    def run(self):
-        steps = [
-            (0, "Activating camera…"),
-            (1, "Facial features captured ✓"),
-            (2, "Recording voice sample…"),
-            (3, "Voice biomarkers extracted ✓"),
-            (4, "Thermal scan in progress…"),
-            (5, "All sensors complete ✓"),
-        ]
-        for step, msg in steps:
-            self.progress.emit(step, msg)
-            time.sleep(1.2)
-        self.finished.emit()
-
-
-# ── Helper: make a styled card frame ──────────────────────────
 def make_card():
     f = QFrame()
     f.setObjectName("card")
@@ -37,125 +27,185 @@ class CaptureScreen(QWidget):
     def __init__(self, go_to):
         super().__init__()
         self.go_to = go_to
-        self.worker = None
+
+        self._timer = QTimer()
+        self._timer.timeout.connect(self._update_preview)
+
+        # ── Data storage ─────────────────────
+        self.image_bytes = None
+        self.thermal_bytes = None
+        self.audio_bytes = None
+        self.audio_ok = False
+
         self._build_ui()
 
+    # ── UI ─────────────────────────────────
     def _build_ui(self):
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(30, 30, 30, 30)
-        layout.setSpacing(14)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(12)
 
-        # ── Header ─────────────────────────────────────
-        lbl = QLabel("STEP 1 OF 3")
-        lbl.setObjectName("section")
-        title = QLabel("Data Capture")
+        title = QLabel("Step-by-Step Capture")
         title.setObjectName("screen_title")
 
-        # ── Progress bar ───────────────────────────────
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setMaximum(6)
-        self.progress_bar.setValue(0)
-        self.progress_bar.setTextVisible(False)
-        self.progress_bar.setFixedHeight(6)
+        # Camera preview
+        self.cam_label = QLabel("Camera Preview")
+        self.cam_label.setFixedHeight(200)
+        self.cam_label.setAlignment(Qt.AlignCenter)
 
-        # ── Step cards ─────────────────────────────────
-        self.step_cards = []
-        steps_info = [
-            ("Face Scan",       "Detecting 10 facial biomarkers"),
-            ("Voice Recording", "Pitch, jitter, shimmer, HNR"),
-            ("Thermal Scan",    "MLX90640 neck temperature map"),
-        ]
+        # Thermal preview
+        self.thm_label = QLabel("Thermal Preview")
+        self.thm_label.setFixedHeight(200)
+        self.thm_label.setAlignment(Qt.AlignCenter)
 
-        cards_layout = QVBoxLayout()
-        for name, desc in steps_info:
-            card = make_card()
-            card_layout = QHBoxLayout(card)
-            card_layout.setContentsMargins(16, 12, 16, 12)
+        # Buttons
+        btn_row = QHBoxLayout()
 
-            # Left: name + description
-            info_col = QVBoxLayout()
-            n = QLabel(name)
-            n.setStyleSheet("font-weight:bold; font-size:13px; color:#e8edf7;")
-            d = QLabel(desc)
-            d.setStyleSheet("font-size:11px; color:#7a90b8;")
-            info_col.addWidget(n)
-            info_col.addWidget(d)
+        self.btn_cam = QPushButton("📸 Capture Image")
+        self.btn_cam.clicked.connect(self.capture_image)
 
-            # Right: status badge
-            status = QLabel("Waiting")
-            status.setStyleSheet(
-                "font-size:10px; color:#4a5a78;"
-                "border:1px solid #1e2d45;"
-                "border-radius:10px; padding:2px 8px;"
-            )
+        self.btn_thm = QPushButton("🌡 Capture Thermal")
+        self.btn_thm.clicked.connect(self.capture_thermal)
 
-            card_layout.addLayout(info_col)
-            card_layout.addStretch()
-            card_layout.addWidget(status)
+        self.btn_audio = QPushButton("🎤 Record Audio")
+        self.btn_audio.clicked.connect(self.record_audio)
 
-            self.step_cards.append(status)
-            cards_layout.addWidget(card)
+        btn_row.addWidget(self.btn_cam)
+        btn_row.addWidget(self.btn_thm)
+        btn_row.addWidget(self.btn_audio)
 
-        # ── Status message ─────────────────────────────
-        self.status_msg = QLabel("")
-        self.status_msg.setStyleSheet("color:#7a90b8; font-size:11px;")
+        # Scan button
+        self.btn_scan = QPushButton("▶ Start Scan")
+        self.btn_scan.setObjectName("primary")
+        self.btn_scan.clicked.connect(self.start_scan)
 
-        # ── Start button ───────────────────────────────
-        self.btn = QPushButton("Start Capture")
-        self.btn.setObjectName("primary")
-        self.btn.setFixedWidth(200)
-        self.btn.clicked.connect(self.start_scan)
+        # Status
+        self.status = QLabel("Ready")
+        self.status.setAlignment(Qt.AlignCenter)
 
-        # ── Assemble ───────────────────────────────────
-        layout.addWidget(lbl)
         layout.addWidget(title)
-        layout.addWidget(self.progress_bar)
-        layout.addLayout(cards_layout)
-        layout.addWidget(self.status_msg)
+        layout.addWidget(self.cam_label)
+        layout.addWidget(self.thm_label)
+        layout.addLayout(btn_row)
+        layout.addWidget(self.status)
         layout.addStretch()
-        layout.addWidget(self.btn, alignment=Qt.AlignCenter)
+        layout.addWidget(self.btn_scan, alignment=Qt.AlignCenter)
 
+    # ── Preview ────────────────────────────
+    def start_preview(self):
+        self._timer.start(200)
+
+    def stop_preview(self):
+        self._timer.stop()
+
+    def _update_preview(self):
+        # Camera preview (only if not captured)
+        if self.image_bytes is None:
+            cam_bytes = get_camera_frame()
+            if cam_bytes:
+                self._show(self.cam_label, cam_bytes)
+
+        # Thermal preview (only if not captured)
+        if self.thermal_bytes is None:
+            thm_bytes = get_thermal_frame()
+            if thm_bytes:
+                self._show(self.thm_label, thm_bytes)
+
+    def _show(self, label, jpeg_bytes):
+        arr = np.frombuffer(jpeg_bytes, np.uint8)
+        frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        if frame is None:
+            return
+
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        h, w, ch = rgb.shape
+        img = QImage(rgb.data, w, h, ch * w, QImage.Format_RGB888)
+        label.setPixmap(QPixmap.fromImage(img))
+
+    # ── Capture Image ──────────────────────
+    def capture_image(self):
+        try:
+            capture_image()  # trigger Pi capture
+
+            frame = get_camera_frame()
+            if frame:
+                self.image_bytes = frame
+                self._show(self.cam_label, frame)
+
+                self.status.setText("✅ Image captured")
+                print("[SCAN] Image captured")
+
+        except Exception as e:
+            print(e)
+            self.status.setText("❌ Image failed")
+
+    # ── Capture Thermal ────────────────────
+    def capture_thermal(self):
+        try:
+            from api.client import get_thermal_frame
+
+            frame = get_thermal_frame()
+
+            if frame:
+                # ✅ store thermal IMAGE bytes
+                self.thermal_bytes = frame
+
+                self.status.setText("✅ Thermal captured")
+                print("[SCAN] Thermal captured")
+
+            else:
+                self.status.setText("❌ Thermal failed")
+
+        except Exception as e:
+            print(e)
+            self.status.setText("❌ Thermal error")
+    # ── Record Audio ───────────────────────
+    def record_audio(self):
+        try:
+            data = record_audio()
+
+            self.audio_ok = data.get("ok", False)
+
+            if self.audio_ok:
+                self.status.setText("✅ Audio recorded")
+                print("[SCAN] Audio recorded")
+            else:
+                self.status.setText("⚠ Audio issue")
+
+        except Exception as e:
+            print(e)
+            self.status.setText("❌ Audio failed")
+
+    # ── Start Scan ─────────────────────────
     def start_scan(self):
-        self.btn.setEnabled(False)
-        self.btn.setText("Scanning…")
-        self.worker = ScanWorker()
-        self.worker.progress.connect(self.on_progress)
-        self.worker.finished.connect(lambda: self.go_to("processing"))
-        self.worker.start()
+        if not self.image_bytes:
+            self.status.setText("⚠ Capture image first")
+            return
 
-    def on_progress(self, step, msg):
-        self.progress_bar.setValue(step + 1)
-        self.status_msg.setText(msg)
+        if not self.thermal_bytes:
+            self.status.setText("⚠ Capture thermal first")
+            return
 
-        card_idx = step // 2
-        status = self.step_cards[card_idx]
+        if not self.audio_ok:
+            self.status.setText("⚠ Record audio first")
+            return
 
-        if step % 2 == 0:
-            # Active
-            status.setText("Active")
-            status.setStyleSheet(
-                "font-size:10px; color:#4f8dff;"
-                "border:1px solid #4f8dff;"
-                "border-radius:10px; padding:2px 8px;"
-            )
-        else:
-            # Done
-            status.setText("✓ Done")
-            status.setStyleSheet(
-                "font-size:10px; color:#3ddc97;"
-                "border:1px solid #3ddc97;"
-                "border-radius:10px; padding:2px 8px;"
-            )
+        self.stop_preview()
 
+        print("[SCAN] Starting processing")
+        self.go_to("processing")
+
+    # ── Reset ─────────────────────────────
     def reset(self):
-        self.btn.setEnabled(True)
-        self.btn.setText("Start Capture")
-        self.progress_bar.setValue(0)
-        self.status_msg.setText("")
-        for status in self.step_cards:
-            status.setText("Waiting")
-            status.setStyleSheet(
-                "font-size:10px; color:#4a5a78;"
-                "border:1px solid #1e2d45;"
-                "border-radius:10px; padding:2px 8px;"
-            )
+        self.image_bytes = None
+        self.thermal_bytes = None
+        self.audio_bytes = None
+        self.audio_ok = False
+
+        self.status.setText("Ready")
+
+        # Clear UI
+        self.cam_label.setText("Camera Preview")
+        self.thm_label.setText("Thermal Preview")
+
+        self.start_preview()

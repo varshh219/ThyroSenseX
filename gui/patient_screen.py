@@ -1,14 +1,16 @@
 from PyQt5.QtWidgets import (
-QWidget, QVBoxLayout, QHBoxLayout,
-QLabel, QPushButton, QLineEdit,
-QFrame, QComboBox
+    QWidget, QVBoxLayout, QHBoxLayout,
+    QLabel, QPushButton, QLineEdit,
+    QFrame, QComboBox
 )
 from PyQt5.QtCore import Qt
+
 
 def make_card():
     f = QFrame()
     f.setObjectName("card")
     return f
+
 
 class PatientRegisterScreen(QWidget):
     def __init__(self, go_to):
@@ -18,22 +20,24 @@ class PatientRegisterScreen(QWidget):
         self.doctor_id = None
         self._build_ui()
 
+    # ── SET DOCTOR ───────────────────────────
     def set_doctor(self, doctor):
         self.doctor = doctor
-        self.doctor_id = doctor['id']
+        self.doctor_id = doctor.get("id")
 
+    # ── UI ───────────────────────────────────
     def _build_ui(self):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(14)
 
-        # Header
         lbl = QLabel("PATIENT REGISTRATION")
         lbl.setObjectName("section")
+
         title = QLabel("New Patient")
         title.setObjectName("screen_title")
 
-        # Form card
+        # Card
         card = make_card()
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(20, 16, 20, 16)
@@ -46,69 +50,60 @@ class PatientRegisterScreen(QWidget):
         )
 
         # Name
-        card_layout.addWidget(self._label("Full Name"))
+        card_layout.addWidget(self._label("Full Name *"))
         self.name_input = QLineEdit()
-        self.name_input.setPlaceholderText("e.g. Varshitha S")
         self.name_input.setStyleSheet(input_style)
         card_layout.addWidget(self.name_input)
 
         # Age + Gender
         ag_row = QHBoxLayout()
 
-        age_col = QVBoxLayout()
-        age_col.addWidget(self._label("Age"))
         self.age_input = QLineEdit()
         self.age_input.setPlaceholderText("25")
         self.age_input.setStyleSheet(input_style)
-        age_col.addWidget(self.age_input)
 
-        gender_col = QVBoxLayout()
-        gender_col.addWidget(self._label("Gender"))
         self.gender_input = QComboBox()
         self.gender_input.addItems(["Female", "Male", "Other"])
         self.gender_input.setStyleSheet(input_style)
-        gender_col.addWidget(self.gender_input)
 
-        ag_row.addLayout(age_col)
-        ag_row.addLayout(gender_col)
+        ag_row.addWidget(self.age_input)
+        ag_row.addWidget(self.gender_input)
+
         card_layout.addLayout(ag_row)
 
         # Phone
-        card_layout.addWidget(self._label("Phone"))
+        card_layout.addWidget(self._label("Phone *"))
         self.phone_input = QLineEdit()
-        self.phone_input.setPlaceholderText("9876543210")
         self.phone_input.setStyleSheet(input_style)
         card_layout.addWidget(self.phone_input)
 
         # Email
         card_layout.addWidget(self._label("Email"))
         self.email_input = QLineEdit()
-        self.email_input.setPlaceholderText("example@gmail.com")
         self.email_input.setStyleSheet(input_style)
         card_layout.addWidget(self.email_input)
 
         # Address
         card_layout.addWidget(self._label("Address"))
         self.address_input = QLineEdit()
-        self.address_input.setPlaceholderText("Bangalore")
         self.address_input.setStyleSheet(input_style)
         card_layout.addWidget(self.address_input)
 
         # Error label
         self.error_lbl = QLabel("")
         self.error_lbl.setAlignment(Qt.AlignCenter)
-        self.error_lbl.setStyleSheet("color:red; font-size:11px;")
 
         # Buttons
         btn_row = QHBoxLayout()
 
-        btn_register = QPushButton("Register")
-        btn_register.clicked.connect(self._register)
+        self.btn_register = QPushButton("Register")
+        self.btn_register.setObjectName("primary")
+        self.btn_register.clicked.connect(self._register)
 
         btn_back = QPushButton("Back")
         btn_back.clicked.connect(lambda: self.go_to("patient_login"))
 
-        btn_row.addWidget(btn_register)
+        btn_row.addWidget(self.btn_register)
         btn_row.addWidget(btn_back)
 
         # Layout
@@ -124,6 +119,7 @@ class PatientRegisterScreen(QWidget):
         l.setStyleSheet("font-size:11px; color:#7a90b8;")
         return l
 
+    # ── REGISTER ─────────────────────────────
     def _register(self):
         name = self.name_input.text().strip()
         age = self.age_input.text().strip()
@@ -132,29 +128,63 @@ class PatientRegisterScreen(QWidget):
         email = self.email_input.text().strip()
         address = self.address_input.text().strip()
 
+        # Validation
         if not name or not age or not phone:
-            self.error_lbl.setText("Fill all required fields")
+            self._error("Fill required fields")
             return
 
         if not age.isdigit():
-            self.error_lbl.setText("Invalid age")
+            self._error("Invalid age")
+            return
+
+        if len(phone) < 10:
+            self._error("Invalid phone")
             return
 
         if not self.doctor_id:
-            self.error_lbl.setText("Doctor not set")
+            self._error("Doctor not set")
             return
 
-        from data.database import register_patient
+        # UI lock
+        self.btn_register.setText("Saving...")
+        self.btn_register.setEnabled(False)
 
-        patient = register_patient(
-            name,
-            int(age),
-            gender,
-            phone,
-            email,
-            address,
-            self.doctor_id
-        )
+        try:
+            from database.database import register_patient
 
-        self.error_lbl.setStyleSheet("color:green")
-        self.error_lbl.setText(f"Patient Added: {patient['id']}")
+            patient = register_patient(
+                name, int(age), gender,
+                phone, email, address,
+                self.doctor_id
+            )
+
+            pid = patient.get("patient_id", patient.get("id"))
+
+            self.error_lbl.setStyleSheet("color:#3ddc97;")
+            self.error_lbl.setText(f"Added: {pid}")
+
+            # Clear form
+            self._clear_form()
+
+            # Go back
+            self.go_to("patient_login")
+
+        except Exception as e:
+            print("[PatientRegister] Error:", e)
+            self._error("DB error")
+
+        finally:
+            self.btn_register.setText("Register")
+            self.btn_register.setEnabled(True)
+
+    def _error(self, msg):
+        self.error_lbl.setStyleSheet("color:#ff4f5e;")
+        self.error_lbl.setText(msg)
+
+    def _clear_form(self):
+        self.name_input.clear()
+        self.age_input.clear()
+        self.phone_input.clear()
+        self.email_input.clear()
+        self.address_input.clear()
+        self.gender_input.setCurrentIndex(0)
