@@ -2,6 +2,7 @@ from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
     QLabel, QPushButton, QFrame, QMessageBox
 )
+from PyQt5.QtGui import QPixmap
 from PyQt5.QtCore import Qt
 from datetime import datetime
 
@@ -26,86 +27,244 @@ class ReportScreen(QWidget):
 
     # ── UI ───────────────────────────────────
     def _build_ui(self):
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(10)
 
-        title = QLabel("THYROSENSEX DIAGNOSTIC REPORT")
-        title.setAlignment(Qt.AlignCenter)
-        title.setStyleSheet(
-            "font-size:18px; font-weight:bold; color:#58a6ff;"
+        layout = QVBoxLayout(self)
+
+        layout.setContentsMargins(
+            20,
+            20,
+            20,
+            20
         )
 
-        # ── Highlight ─────────────────────────
-        self.highlight = make_card()
-        hl_layout = QVBoxLayout(self.highlight)
+        layout.setSpacing(15)
 
-        self.prediction_label = QLabel("—")
-        self.prediction_label.setAlignment(Qt.AlignCenter)
+        # Logo
+
+        logo = QLabel()
+
+        logo.setPixmap(
+            QPixmap(
+                "gui/resources/logos/thyroid_logo.png"
+            ).scaled(
+                80,
+                80,
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation
+            )
+        )
+
+        logo.setAlignment(
+            Qt.AlignCenter
+        )
+
+        layout.addWidget(
+            logo
+        )
+
+        # Title
+
+        title = QLabel(
+            "ThyroSenseX Diagnostic Report"
+        )
+
+        title.setAlignment(
+            Qt.AlignCenter
+        )
+
+        title.setStyleSheet("""
+            font-size:22px;
+            font-weight:bold;
+            color:#58a6ff;
+        """)
+
+        layout.addWidget(
+            title
+        )
+
+        # Prediction Summary
+
+        self.highlight = make_card()
+
+        hl_layout = QVBoxLayout(
+            self.highlight
+        )
+
+        summary = QLabel(
+            "AI Prediction Summary"
+        )
+
+        summary.setAlignment(
+            Qt.AlignCenter
+        )
+
+        summary.setStyleSheet("""
+            font-size:14px;
+            font-weight:bold;
+        """)
+
+        self.prediction_label = QLabel(
+            "—"
+        )
+
+        self.prediction_label.setAlignment(
+            Qt.AlignCenter
+        )
+
+        self.prediction_label.setStyleSheet("""
+            font-size:30px;
+            font-weight:bold;
+        """)
 
         self.conf_bg = QFrame()
-        self.conf_bg.setFixedHeight(8)
 
-        self.conf_fill = QFrame(self.conf_bg)
-        self.conf_fill.setFixedHeight(8)
+        self.conf_bg.setFixedHeight(
+            8
+        )
 
-        hl_layout.addWidget(QLabel("Prediction Summary"))
-        hl_layout.addWidget(self.prediction_label)
-        hl_layout.addWidget(self.conf_bg)
+        self.conf_fill = QFrame(
+            self.conf_bg
+        )
 
-        # ── Details ──────────────────────────
+        self.conf_fill.setFixedHeight(
+            8
+        )
+
+        hl_layout.addWidget(
+            summary
+        )
+
+        hl_layout.addWidget(
+            self.prediction_label
+        )
+
+        hl_layout.addWidget(
+            self.conf_bg
+        )
+
+        # Details Card
+
         card = make_card()
-        card_layout = QVBoxLayout(card)
+
+        card_layout = QVBoxLayout(
+            card
+        )
 
         self.row_values = {}
 
         def add_row(key):
+
             row = QHBoxLayout()
 
             k = QLabel(key)
-            k.setStyleSheet("color:#8b949e; font-size:11px;")
+
+            k.setStyleSheet("""
+                color:#8b949e;
+                font-size:11px;
+            """)
 
             v = QLabel("—")
-            v.setStyleSheet("color:#d1d9e0; font-size:11px;")
+
+            v.setStyleSheet("""
+                color:#d1d9e0;
+                font-size:11px;
+            """)
 
             row.addWidget(k)
+
             row.addStretch()
+
             row.addWidget(v)
 
-            card_layout.addLayout(row)
+            card_layout.addLayout(
+                row
+            )
+
             self.row_values[key] = v
 
         rows = [
-            "Patient Name", "Patient ID", "Age / Gender",
-            "Phone", "Doctor", "Date / Time",
-            "Prediction", "Confidence", "Risk Level",
-            "Facial Flags", "Voice Anomalies", "Thermal Anomalies"
+
+            "Patient Name",
+            "Patient ID",
+            "Age / Gender",
+            "Weight",
+            "Phone",
+            "Doctor",
+            "Date / Time",
+
+            "Prediction",
+            "Confidence",
+            "Risk Level",
+
+            "Facial Flags",
+            "Voice Anomalies",
+            "Thermal Anomalies"
         ]
 
         for r in rows:
             add_row(r)
 
-        warning = QLabel("⚠ Screening tool only. Consult a doctor.")
-        warning.setAlignment(Qt.AlignCenter)
+        warning = QLabel(
+            "⚠ This report is generated using AI-assisted screening and should not be used as a substitute for professional medical diagnosis."
+        )
+
+        warning.setAlignment(
+            Qt.AlignCenter
+        )
+
+        warning.setWordWrap(
+            True
+        )
 
         # Buttons
+
         btn_row = QHBoxLayout()
 
-        btn_save = QPushButton("Save PDF")
-        btn_save.setObjectName("primary")
-        btn_save.clicked.connect(self._save_pdf)
+        btn_save = QPushButton(
+            "📄 Save PDF Report"
+        )
 
-        btn_new = QPushButton("New Scan")
-        btn_new.clicked.connect(lambda: self.go_to("welcome"))
+        btn_save.setObjectName(
+            "primary"
+        )
 
-        btn_row.addWidget(btn_save)
-        btn_row.addWidget(btn_new)
+        btn_save.clicked.connect(
+            self._save_pdf
+        )
 
-        layout.addWidget(title)
-        layout.addWidget(self.highlight)
-        layout.addWidget(card)
-        layout.addWidget(warning)
-        layout.addLayout(btn_row)
+        btn_new = QPushButton(
+            "🔄 Start New Scan"
+        )
+
+        btn_new.clicked.connect(
+            lambda: self.go_to(
+                "welcome"
+            )
+        )
+
+        btn_row.addWidget(
+            btn_save
+        )
+
+        btn_row.addWidget(
+            btn_new
+        )
+
+        layout.addWidget(
+            self.highlight
+        )
+
+        layout.addWidget(
+            card
+        )
+
+        layout.addWidget(
+            warning
+        )
+
+        layout.addLayout(
+            btn_row
+        )
 
     # ── REFRESH ─────────────────────────────
     def refresh(self, result=None, patient=None, doctor=None):
@@ -114,10 +273,21 @@ class ReportScreen(QWidget):
         # Patient
         if patient:
             self._current_patient = patient
+
             self._set("Patient Name", patient.get("name", "—"))
             self._set("Patient ID", patient.get("patient_id", patient.get("id", "—")))
-            self._set("Age / Gender",
-                      f"{patient.get('age','—')} · {patient.get('gender','—')}")
+            self._set(
+                "Age / Gender",
+                f"{patient.get('age','—')} · {patient.get('gender','—')}"
+            )
+
+            # 🔥 NEW: Weight
+            weight = patient.get("weight")
+            if weight:
+                self._set("Weight", f"{weight} kg")
+            else:
+                self._set("Weight", "—")
+
             self._set("Phone", patient.get("phone", "—"))
 
         # Doctor
@@ -138,11 +308,11 @@ class ReportScreen(QWidget):
         if confidence <= 1:
             confidence *= 100
 
-        # Colors
+        # Colors + Risk
         if prediction == "Normal":
             color = "#3ddc97"
             risk = "Low"
-        elif prediction == "Hyperthyroid":
+        elif prediction == "Hyperthyroidism":
             color = "#ff4f5e"
             risk = "High"
         else:
@@ -155,7 +325,7 @@ class ReportScreen(QWidget):
             f"font-size:22px; font-weight:bold; color:{color};"
         )
 
-        # Confidence bar (FIXED)
+        # Confidence bar
         total_width = 200
         self.conf_bg.setFixedWidth(total_width)
 

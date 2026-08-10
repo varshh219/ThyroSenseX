@@ -20,14 +20,14 @@ CNN_PATH    = os.path.join(MODEL_DIR, "cnn_model.h5")
 SCALER_PATH = os.path.join(MODEL_DIR, "scaler.pkl")
 
 # ── API CONFIG ──────────────────────────────────────
-PI_IP = "10.204.204.198"   # 🔁 FILL IN your Pi's full IP  e.g. "10.0.0.42"
+PI_IP = "10.162.213.198"   # 🔁 FILL IN your Pi's full IP  e.g. "10.0.0.42"
 PORT  = 5000
 
 BASE_API = f"http://{PI_IP}:{PORT}"
 
 # ── Endpoints ───────────────────────────────────────
 CAMERA_API   = f"{BASE_API}/camera_frame"    # GET  → live JPEG frame
-THERMAL_API  = f"{BASE_API}/thermal_frame"   # GET  → smooth thermal JPEG
+THERMAL_API  = f"{BASE_API}/thermal_data"    # GET  → thermal data
 CAPTURE_API  = f"{BASE_API}/capture_image"   # POST → saves image, returns JSON
 AUDIO_API    = f"{BASE_API}/record_audio"    # POST → records WAV, returns JSON
 SCAN_API     = f"{BASE_API}/scan_face"       # POST → full pipeline, returns result JSON

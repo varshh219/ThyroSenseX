@@ -37,7 +37,6 @@ class PatientRegisterScreen(QWidget):
         title = QLabel("New Patient")
         title.setObjectName("screen_title")
 
-        # Card
         card = make_card()
         card_layout = QVBoxLayout(card)
         card_layout.setContentsMargins(20, 16, 20, 16)
@@ -59,7 +58,7 @@ class PatientRegisterScreen(QWidget):
         ag_row = QHBoxLayout()
 
         self.age_input = QLineEdit()
-        self.age_input.setPlaceholderText("25")
+        self.age_input.setPlaceholderText("Age")
         self.age_input.setStyleSheet(input_style)
 
         self.gender_input = QComboBox()
@@ -70,6 +69,13 @@ class PatientRegisterScreen(QWidget):
         ag_row.addWidget(self.gender_input)
 
         card_layout.addLayout(ag_row)
+
+        # 🔥 NEW: Weight
+        card_layout.addWidget(self._label("Weight (kg) *"))
+        self.weight_input = QLineEdit()
+        self.weight_input.setPlaceholderText("Enter weight")
+        self.weight_input.setStyleSheet(input_style)
+        card_layout.addWidget(self.weight_input)
 
         # Phone
         card_layout.addWidget(self._label("Phone *"))
@@ -89,11 +95,9 @@ class PatientRegisterScreen(QWidget):
         self.address_input.setStyleSheet(input_style)
         card_layout.addWidget(self.address_input)
 
-        # Error label
         self.error_lbl = QLabel("")
         self.error_lbl.setAlignment(Qt.AlignCenter)
 
-        # Buttons
         btn_row = QHBoxLayout()
 
         self.btn_register = QPushButton("Register")
@@ -106,7 +110,6 @@ class PatientRegisterScreen(QWidget):
         btn_row.addWidget(self.btn_register)
         btn_row.addWidget(btn_back)
 
-        # Layout
         layout.addWidget(lbl)
         layout.addWidget(title)
         layout.addWidget(card)
@@ -124,17 +127,22 @@ class PatientRegisterScreen(QWidget):
         name = self.name_input.text().strip()
         age = self.age_input.text().strip()
         gender = self.gender_input.currentText()
+        weight = self.weight_input.text().strip()   # 🔥 NEW
         phone = self.phone_input.text().strip()
         email = self.email_input.text().strip()
         address = self.address_input.text().strip()
 
         # Validation
-        if not name or not age or not phone:
+        if not name or not age or not phone or not weight:
             self._error("Fill required fields")
             return
 
         if not age.isdigit():
             self._error("Invalid age")
+            return
+
+        if not weight.replace('.', '', 1).isdigit():
+            self._error("Invalid weight")
             return
 
         if len(phone) < 10:
@@ -145,7 +153,6 @@ class PatientRegisterScreen(QWidget):
             self._error("Doctor not set")
             return
 
-        # UI lock
         self.btn_register.setText("Saving...")
         self.btn_register.setEnabled(False)
 
@@ -153,9 +160,14 @@ class PatientRegisterScreen(QWidget):
             from database.database import register_patient
 
             patient = register_patient(
-                name, int(age), gender,
-                phone, email, address,
-                self.doctor_id
+                name,
+                int(age),
+                gender,
+                phone,
+                email,
+                address,
+                self.doctor_id,
+                float(weight)   # 🔥 PASS WEIGHT
             )
 
             pid = patient.get("patient_id", patient.get("id"))
@@ -163,10 +175,7 @@ class PatientRegisterScreen(QWidget):
             self.error_lbl.setStyleSheet("color:#3ddc97;")
             self.error_lbl.setText(f"Added: {pid}")
 
-            # Clear form
             self._clear_form()
-
-            # Go back
             self.go_to("patient_login")
 
         except Exception as e:
@@ -184,6 +193,7 @@ class PatientRegisterScreen(QWidget):
     def _clear_form(self):
         self.name_input.clear()
         self.age_input.clear()
+        self.weight_input.clear()   # 🔥 NEW
         self.phone_input.clear()
         self.email_input.clear()
         self.address_input.clear()

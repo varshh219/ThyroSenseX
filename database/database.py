@@ -1,176 +1,115 @@
 import psycopg2
-import psycopg2.extras
-import bcrypt
-import os
-import json
-from datetime import datetime
-from dotenv import load_dotenv
 
-load_dotenv()
+conn = psycopg2.connect(
+    host="localhost",
+    database="thyrosensex_db",
+    user="postgres",
+    password="varsh123"   # ← change this
+)
 
+cursor = conn.cursor()
 
-# ── CONNECTION ───────────────────────────────────────────────
-def get_connection():
-    return psycopg2.connect(
-        host=os.getenv("DB_HOST", "localhost"),
-        port=os.getenv("DB_PORT", 5432),
-        dbname=os.getenv("DB_NAME", "thyrosensex_db"),
-        user=os.getenv("DB_USER", "postgres"),
-        password=os.getenv("DB_PASSWORD", "")
-    )
+print("[DB] Connected to PostgreSQL")
 
 
-# ── DOCTOR AUTH ──────────────────────────────────────────────
-def verify_doctor(username, password):
-    try:
-        with get_connection() as conn:
-            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                cur.execute(
-                    "SELECT * FROM doctors WHERE username=%s",
-                    (username,)
-                )
-                doctor = cur.fetchone()
+# ─────────────────────────────────────────
+# REGISTER PATIENT
+# ─────────────────────────────────────────
 
-        if doctor and bcrypt.checkpw(
-            password.encode(), doctor['password_hash'].encode()
-        ):
-            return dict(doctor)
+def register_patient(name, age, gender, phone, email, address, doctor_id, weight):
+    cursor.execute("""
+        INSERT INTO patients (name, age, gender, weight, phone, email, address, doctor_id)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s)
+        RETURNING id
+    """, (name, age, gender, weight, phone, email, address, doctor_id))
 
-    except Exception as e:
-        print("DB Error (verify_doctor):", e)
+    pid = cursor.fetchone()[0]
+    conn.commit()
 
-    return None
-
-
-def register_doctor(username, password, full_name, email):
-    try:
-        password_hash = bcrypt.hashpw(
-            password.encode(), bcrypt.gensalt()
-        ).decode()
-
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """INSERT INTO doctors 
-                    (username, password_hash, full_name, email)
-                    VALUES (%s,%s,%s,%s) RETURNING id""",
-                    (username, password_hash, full_name, email)
-                )
-                doctor_id = cur.fetchone()[0]
-
-        return doctor_id
-
-    except Exception as e:
-        print("DB Error (register_doctor):", e)
-        return None
+    return {
+        "id": pid,
+        "name": name,
+        "age": age,
+        "gender": gender,
+        "weight": weight,
+        "phone": phone
+    }
 
 
-# ── PATIENT ID GENERATION ────────────────────────────────────
-def generate_patient_id():
-    try:
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute("SELECT COUNT(*) FROM patients")
-                count = cur.fetchone()[0] + 1
-
-        return f"TSX-{datetime.now().year}-{count:04d}"
-
-    except Exception as e:
-        print("DB Error (generate_patient_id):", e)
-        return f"TSX-{datetime.now().year}-0000"
-
-
-# ── PATIENT OPERATIONS ───────────────────────────────────────
-def register_patient(name, age, gender, phone, email, address, doctor_id):
-    try:
-        patient_id = generate_patient_id()
-
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """INSERT INTO patients
-                    (patient_id, name, age, gender, phone, email, address, created_by)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s)""",
-                    (patient_id, name, age, gender, phone, email, address, doctor_id)
-                )
-
-        return {
-            'id': patient_id,
-            'name': name,
-            'age': age,
-            'gender': gender,
-            'phone': phone,
-            'email': email
-        }
-
-    except Exception as e:
-        print("DB Error (register_patient):", e)
-        return None
-
-
-def search_patients(query):
-    try:
-        with get_connection() as conn:
-            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                cur.execute(
-                    """SELECT * FROM patients
-                    WHERE LOWER(name) LIKE %s OR patient_id LIKE %s
-                    ORDER BY created_at DESC""",
-                    (f'%{query.lower()}%', f'%{query}%')
-                )
-                return [dict(r) for r in cur.fetchall()]
-
-    except Exception as e:
-        print("DB Error (search_patients):", e)
-        return []
-
+# ─────────────────────────────────────────
+# GET ALL PATIENTS
+# ─────────────────────────────────────────
 
 def get_all_patients():
-    try:
-        with get_connection() as conn:
-            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                cur.execute("SELECT * FROM patients ORDER BY created_at DESC")
-                return [dict(r) for r in cur.fetchall()]
+    cursor.execute("SELECT id, name, age, gender, weight, phone FROM patients ORDER BY id DESC")
+    rows = cursor.fetchall()
 
-    except Exception as e:
-        print("DB Error (get_all_patients):", e)
-        return []
+    patients = []
+    for r in rows:
+        patients.append({
+            "id": r[0],
+            "name": r[1],
+            "age": r[2],
+            "gender": r[3],
+            "weight": r[4],
+            "phone": r[5]
+        })
 
-
-# ── SCAN STORAGE ─────────────────────────────────────────────
-def save_scan_result(patient_id, doctor_id, result):
-    try:
-        with get_connection() as conn:
-            with conn.cursor() as cur:
-                cur.execute(
-                    """INSERT INTO scans
-                    (patient_id, doctor_id, prediction, confidence,
-                     probabilities, features)
-                    VALUES (%s,%s,%s,%s,%s,%s)""",
-                    (
-                        patient_id,
-                        doctor_id,
-                        result.get('prediction'),
-                        result.get('confidence'),
-                        json.dumps(result.get('probabilities', {})),
-                        json.dumps(result.get('features', {}))
-                    )
-                )
-
-    except Exception as e:
-        print("DB Error (save_scan_result):", e)
+    return patients
 
 
-def get_patient_scans(patient_id):
-    try:
-        with get_connection() as conn:
-            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-                cur.execute(
-                    "SELECT * FROM scans WHERE patient_id=%s ORDER BY scan_date DESC",
-                    (patient_id,)
-                )
-                return [dict(r) for r in cur.fetchall()]
+# ─────────────────────────────────────────
+# SAVE SCAN
+# ─────────────────────────────────────────
 
-    except Exception as e:
-        print("DB Error (get_patient_scans):", e)
-        return []
+def save_scan(patient_id, prediction, confidence):
+    cursor.execute("""
+        INSERT INTO scans (patient_id, prediction, confidence)
+        VALUES (%s,%s,%s)
+    """, (patient_id, prediction, confidence))
+
+    conn.commit()
+
+
+# ─────────────────────────────────────────
+# GET LAST SCAN
+# ─────────────────────────────────────────
+
+def get_last_scan(patient_id):
+    cursor.execute("""
+        SELECT prediction, confidence, created_at
+        FROM scans
+        WHERE patient_id=%s
+        ORDER BY created_at DESC
+        LIMIT 1
+    """, (patient_id,))
+
+    row = cursor.fetchone()
+
+    if not row:
+        return None
+
+    return {
+        "prediction": row[0],
+        "confidence": row[1],
+        "date": row[2].strftime("%d %b %Y")
+    }
+
+    # ─────────────────────────────────────────
+# VERIFY DOCTOR LOGIN
+# ─────────────────────────────────────────
+def verify_doctor(username, password):
+    cursor.execute("""
+        SELECT id, full_name FROM doctors
+        WHERE full_name=%s AND password=%s
+    """, (username, password))
+
+    row = cursor.fetchone()
+
+    if not row:
+        return None
+
+    return {
+        "id": row[0],
+        "full_name": row[1]
+    }

@@ -9,7 +9,7 @@ from reportlab.platypus import (
     Table, TableStyle
 )
 
-# ── MAIN FUNCTION ─────────────────────────────────────
+
 def generate_report(result, output_dir="reports/output", patient=None, doctor=None):
 
     os.makedirs(output_dir, exist_ok=True)
@@ -27,14 +27,14 @@ def generate_report(result, output_dir="reports/output", patient=None, doctor=No
         bottomMargin=2*cm,
     )
 
-    # ── STYLES (SIMPLE) ─────────────────────────────
+    # ── STYLES ─────────────────────────────
     style_title = ParagraphStyle(
         "title", fontSize=18, fontName="Helvetica-Bold",
-        textColor=colors.black, spaceAfter=10
+        textColor=colors.black, spaceAfter=12
     )
 
     style_section = ParagraphStyle(
-        "section", fontSize=11, fontName="Helvetica-Bold",
+        "section", fontSize=12, fontName="Helvetica-Bold",
         textColor=colors.black, spaceBefore=12, spaceAfter=6
     )
 
@@ -46,10 +46,10 @@ def generate_report(result, output_dir="reports/output", patient=None, doctor=No
 
     now = datetime.now().strftime("%d %B %Y, %H:%M")
 
-    # ── HEADER ─────────────────────────────────────
-    story.append(Paragraph("AI-Based Thyroid Detection Report", style_title))
+    # ── HEADER ─────────────────────────────
+    story.append(Paragraph("ThyroSenseX Diagnostic Report", style_title))
 
-    # ── PATIENT DETAILS ────────────────────────────
+    # ── PATIENT DETAILS ────────────────────
     story.append(Paragraph("Patient Details", style_section))
 
     data = []
@@ -58,7 +58,8 @@ def generate_report(result, output_dir="reports/output", patient=None, doctor=No
         data.extend([
             ["Name", patient.get("name", "—")],
             ["Patient ID", patient.get("id", "—")],
-            ["Age/Gender", f"{patient.get('age')} / {patient.get('gender')}"],
+            ["Age / Gender", f"{patient.get('age')} / {patient.get('gender')}"],
+            ["Weight", f"{patient.get('weight','—')} kg"],   # 🔥 ADDED
             ["Phone", patient.get("phone", "—")],
         ])
 
@@ -73,7 +74,7 @@ def generate_report(result, output_dir="reports/output", patient=None, doctor=No
     ]))
     story.append(table)
 
-    # ── RESULT ─────────────────────────────────────
+    # ── RESULT ─────────────────────────────
     story.append(Paragraph("Result", style_section))
 
     prediction = result.get("prediction", "—")
@@ -82,9 +83,18 @@ def generate_report(result, output_dir="reports/output", patient=None, doctor=No
     if confidence <= 1:
         confidence *= 100
 
+    # 🔥 Risk Level Logic
+    if prediction == "Normal":
+        risk = "Low"
+    elif prediction == "Hyperthyroidism":
+        risk = "High"
+    else:
+        risk = "Moderate"
+
     result_table = Table([
         ["Prediction", prediction],
-        ["Confidence", f"{confidence:.1f}%"]
+        ["Confidence", f"{confidence:.1f}%"],
+        ["Risk Level", risk]   # 🔥 ADDED
     ], colWidths=[5*cm, 11*cm])
 
     result_table.setStyle(TableStyle([
@@ -92,11 +102,12 @@ def generate_report(result, output_dir="reports/output", patient=None, doctor=No
     ]))
     story.append(result_table)
 
-    # ── STATUS ─────────────────────────────────────
+    # ── STATUS ─────────────────────────────
     story.append(Spacer(1, 10))
 
     story.append(Paragraph(
-        f"Status: The patient shows indications of {prediction}.",
+        f"Status: The patient shows indications of {prediction}. "
+        f"Clinical consultation is recommended for confirmation.",
         style_text
     ))
 
