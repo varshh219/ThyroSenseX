@@ -1,35 +1,52 @@
-## 🔧 Steps to Follow (Raspberry Pi Side)
+## 🔧 Raspberry Pi Setup
 
-1. Clone the repository:
+### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/varshh219/ThyroSenseX
+git clone https://github.com/varshh219/ThyroSenseX.git
 cd ThyroSenseX
 ```
 
-2. Create and activate virtual environment:
+### 2. Create and Activate Virtual Environment
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 ```
 
-3. Install dependencies:
+### 3. Install Dependencies
 
 ```bash
 python3 -m pip install -r requirements.txt
 ```
 
-4. Add model files:
+### 4. Verify Model Files
 
-* Place the following inside `model/` folder:
+The current ThyroSenseX AI pipeline uses the following trained model files:
 
-  * thyroid_model.pkl
-  * scaler.pkl
-  * feature_columns.pkl
-  * cnn_model.h5 (if used)
+```text
+model/
+├── model.pkl
+├── scaler.pkl
+└── feature_columns.pkl
+```
 
-5. Run the application:
+These files are included in the repository and should be available after cloning.
+
+### 5. Configure Raspberry Pi
+
+Update the Raspberry Pi IP configuration before running the application.
+
+The system uses the Raspberry Pi for:
+
+* 📷 Camera capture
+* 🎙️ Voice recording
+* 🌡️ Thermal data acquisition
+* 📺 OLED result display
+
+Make sure the Raspberry Pi services are running and accessible from the application.
+
+### 6. Run the Application
 
 ```bash
 python main.py
@@ -37,33 +54,114 @@ python main.py
 
 ---
 
-## 🔌 Integration Work
+## 🔌 Sensor Integration
 
-6. Update camera:
+### 📷 Camera
 
-* Edit `sensors/camera.py`
-* Capture face image using Pi Camera / USB cam
+Connect the Raspberry Pi Camera Module or supported USB camera.
 
-7. Update microphone:
+The captured image is processed by the facial feature extraction pipeline.
 
-* Edit `sensors/microphone.py`
-* Record voice input properly
+### 🎙️ Microphone
 
-8. Update thermal sensor:
+Connect the microphone and verify that audio recording is working correctly.
 
-* Edit `sensors/thermal.py`
-* Replace dummy values with real readings (if sensor available)
+The recorded voice sample is processed by the voice feature extraction pipeline.
+
+### 🌡️ Thermal Sensor
+
+Connect the MLX90640 thermal camera module and verify that thermal readings are being received.
+
+The thermal data is processed by the thermal feature extraction pipeline.
+
+### 📺 OLED Display
+
+If an OLED display is connected, ensure that the Raspberry Pi API is running correctly.
+
+The predicted thyroid condition and confidence score are sent to the OLED display.
 
 ---
 
-## 🧪 Final Check
+## 🧠 AI Prediction Pipeline
 
-9. Test full flow:
+ThyroSenseX combines multiple patient and sensor features:
 
-* Login → Register Patient → Capture Data → Predict → Result → Report
+```text
+Patient Information
+        │
+        ├── Age
+        ├── Weight
+        └── Gender
+              │
+              ▼
+       Facial Features
+              │
+              ▼
+       Thermal Features
+              │
+              ▼
+        Voice Features
+              │
+              ▼
+       Feature Vector
+              │
+              ▼
+      Machine Learning Model
+              │
+              ▼
+   Thyroid Classification
+              │
+      ┌───────┼──────────────┐
+      ▼       ▼              ▼
+   Normal  Hypothyroidism  Hyperthyroidism
+```
+
+The prediction is generated from the extracted features and **does not depend on the patient's name or patient ID**.
+
+---
+
+## 🧪 Final System Test
+
+Test the complete workflow:
+
+```text
+Doctor Login
+     ↓
+Patient Selection / Registration
+     ↓
+Image Capture
+     ↓
+Thermal Data Capture
+     ↓
+Voice Recording
+     ↓
+Feature Extraction
+     ↓
+AI Model Prediction
+     ↓
+Result Display
+     ↓
+Save Scan
+     ↓
+Generate Report
+```
+
+Verify that:
+
+* Patient information is loaded correctly.
+* Camera capture works.
+* Voice recording works.
+* Thermal data is received.
+* Features are extracted successfully.
+* The trained model generates the prediction.
+* The confidence score is displayed.
+* The prediction is saved to the database.
+* The final report is generated correctly.
 
 ---
 
 ## 🎯 Goal
 
-Ensure the GUI runs on Raspberry Pi and uses real sensor inputs for prediction.
+The goal is to run the complete **ThyroSenseX AI-IoT thyroid screening system** on Raspberry Pi using real camera, thermal and voice inputs together with the trained machine-learning model.
+
+The system is designed to provide a portable, non-invasive and real-time thyroid screening workflow.
