@@ -1,5 +1,5 @@
 import numpy as np
-import joblib
+from model.ensemble import ThyroidEnsemble
 import os
 
 from PyQt5.QtWidgets import (
@@ -19,12 +19,10 @@ from PyQt5.QtCore import Qt, QThread, pyqtSignal
 
 MODEL_PATH = os.path.join("model", "model.pkl")
 
-model_pack = joblib.load(MODEL_PATH)
+ensemble = ThyroidEnsemble.load(MODEL_PATH)
 
-rf_model = model_pack["rf_model"]
-xgb_model = model_pack["xgb_model"]
-feature_columns = model_pack["feature_columns"]
-class_names = model_pack["class_names"]
+feature_columns = ensemble.feature_columns
+class_names = ensemble.class_names
 
 print("[MODEL] Loaded successfully")
 print("[MODEL] Features:", len(feature_columns))
@@ -315,170 +313,19 @@ class ScanWorker(QThread):
 # ============================================================
 
 def _run_model(features: dict):
+    """RF + XGBoost + 1D-CNN probability fusion. Returns (label, confidence %)."""
 
-    print("\n================================")
-    print("        MODEL PREDICTION")
-    print("================================")
-
-    # --------------------------------------------------------
-    # DISPLAY FEATURES
-    # --------------------------------------------------------
-
-    print("\n=== INPUT FEATURES ===")
+    print("\n=== MODEL PREDICTION ===")
 
     for column in feature_columns:
+        print(f"{column}:", features.get(column, 0.0))
 
-        print(
-            f"{column}:",
-            features.get(
-                column,
-                0.0
-            )
-        )
+    prediction, confidence, probs = ensemble.predict(features)
 
-    # --------------------------------------------------------
-    # CREATE MODEL VECTOR
-    # --------------------------------------------------------
+    for name in ("rf", "xgb", "cnn", "fusion"):
+        print(f"[{name.upper():6s}] probabilities:", np.round(probs[name][0], 4))
 
-    vector = np.array(
-        [
-            [
-                float(
-                    features.get(
-                        column,
-                        0.0
-                    )
-                )
-                for column in feature_columns
-            ]
-        ],
-        dtype=np.float32
-    )
-
-    print(
-        "\n[MODEL] Feature vector shape:",
-        vector.shape
-    )
-
-    # --------------------------------------------------------
-    # RANDOM FOREST
-    # --------------------------------------------------------
-
-    rf_probs = rf_model.predict_proba(
-        vector
-    )[0]
-
-    rf_prediction_index = np.argmax(
-        rf_probs
-    )
-
-    rf_confidence = (
-        float(
-            rf_probs[
-                rf_prediction_index
-            ]
-        ) * 100
-    )
-
-    # --------------------------------------------------------
-    # XGBOOST
-    # --------------------------------------------------------
-
-    xgb_probs = xgb_model.predict_proba(
-        vector
-    )[0]
-
-    xgb_prediction_index = np.argmax(
-        xgb_probs
-    )
-
-    xgb_confidence = (
-        float(
-            xgb_probs[
-                xgb_prediction_index
-            ]
-        ) * 100
-    )
-
-    # --------------------------------------------------------
-    # PRINT MODEL OUTPUT
-    # --------------------------------------------------------
-
-    print("\n=== RANDOM FOREST ===")
-
-    print(
-        "Probabilities:",
-        rf_probs
-    )
-
-    print(
-        "Predicted class index:",
-        rf_prediction_index
-    )
-
-    print(
-        "Confidence:",
-        rf_confidence
-    )
-
-    print("\n=== XGBOOST ===")
-
-    print(
-        "Probabilities:",
-        xgb_probs
-    )
-
-    print(
-        "Predicted class index:",
-        xgb_prediction_index
-    )
-
-    print(
-        "Confidence:",
-        xgb_confidence
-    )
-
-    # --------------------------------------------------------
-    # USE XGBOOST AS FINAL MULTI-CLASS MODEL
-    # --------------------------------------------------------
-
-    if xgb_prediction_index >= len(
-        class_names
-    ):
-
-        raise ValueError(
-            "Model predicted an invalid class index."
-        )
-
-    prediction = class_names[
-        xgb_prediction_index
-    ]
-
-    confidence = round(
-        xgb_confidence,
-        2
-    )
-
-    # --------------------------------------------------------
-    # FINAL OUTPUT
-    # --------------------------------------------------------
-
-    print("\n================================")
-    print("FINAL AI PREDICTION")
-    print("================================")
-
-    print(
-        "Prediction:",
-        prediction
-    )
-
-    print(
-        "Confidence:",
-        confidence,
-        "%"
-    )
-
-    print("================================\n")
+    print("FINAL AI PREDICTION:", prediction, f"({confidence}%)\n")
 
     return prediction, confidence
 

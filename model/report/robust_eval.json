@@ -1,0 +1,156 @@
+{
+  "data": "data/synthetic_hard.csv",
+  "rows": 3793,
+  "subjects": 1500,
+  "row_level_cv5": {
+    "rf": {
+      "accuracy": [
+        0.6267,
+        0.0142
+      ],
+      "f1_macro": [
+        0.5666,
+        0.0185
+      ],
+      "auc": 0.7697
+    },
+    "xgb": {
+      "accuracy": [
+        0.6486,
+        0.016
+      ],
+      "f1_macro": [
+        0.5983,
+        0.0168
+      ],
+      "auc": 0.7907
+    },
+    "cnn": {
+      "accuracy": [
+        0.6027,
+        0.0154
+      ],
+      "f1_macro": [
+        0.545,
+        0.0067
+      ],
+      "auc": 0.7523
+    },
+    "fusion_equal": {
+      "accuracy": [
+        0.643,
+        0.0202
+      ],
+      "f1_macro": [
+        0.5874,
+        0.0201
+      ],
+      "auc": 0.7875
+    }
+  },
+  "patient_level_cv5": {
+    "rf": {
+      "accuracy": [
+        0.6232,
+        0.0266
+      ],
+      "f1_macro": [
+        0.5604,
+        0.0289
+      ],
+      "auc": 0.7581
+    },
+    "xgb": {
+      "accuracy": [
+        0.6289,
+        0.0202
+      ],
+      "f1_macro": [
+        0.5724,
+        0.0167
+      ],
+      "auc": 0.7688
+    },
+    "cnn": {
+      "accuracy": [
+        0.5921,
+        0.0297
+      ],
+      "f1_macro": [
+        0.5114,
+        0.0572
+      ],
+      "auc": 0.753
+    },
+    "fusion_equal": {
+      "accuracy": [
+        0.6384,
+        0.0275
+      ],
+      "f1_macro": [
+        0.5751,
+        0.0281
+      ],
+      "auc": 0.7746
+    }
+  },
+  "leave_one_site_out": {
+    "A": {
+      "n_test": 1764,
+      "rf": {
+        "accuracy": 0.6122,
+        "f1_macro": 0.5494
+      },
+      "xgb": {
+        "accuracy": 0.6094,
+        "f1_macro": 0.5534
+      },
+      "cnn": {
+        "accuracy": 0.6054,
+        "f1_macro": 0.5596
+      },
+      "fusion_equal": {
+        "accuracy": 0.6315,
+        "f1_macro": 0.5759
+      }
+    },
+    "B": {
+      "n_test": 1345,
+      "rf": {
+        "accuracy": 0.5175,
+        "f1_macro": 0.4591
+      },
+      "xgb": {
+        "accuracy": 0.539,
+        "f1_macro": 0.4936
+      },
+      "cnn": {
+        "accuracy": 0.539,
+        "f1_macro": 0.4777
+      },
+      "fusion_equal": {
+        "accuracy": 0.5353,
+        "f1_macro": 0.48
+      }
+    },
+    "C": {
+      "n_test": 684,
+      "rf": {
+        "accuracy": 0.5877,
+        "f1_macro": 0.4797
+      },
+      "xgb": {
+        "accuracy": 0.6316,
+        "f1_macro": 0.5373
+      },
+      "cnn": {
+        "accuracy": 0.6418,
+        "f1_macro": 0.4998
+      },
+      "fusion_equal": {
+        "accuracy": 0.6447,
+        "f1_macro": 0.5257
+      }
+    }
+  }
+}
