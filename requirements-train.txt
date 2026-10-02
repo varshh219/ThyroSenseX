@@ -1,0 +1,3 @@
+# training only (inference on the Pi needs numpy/sklearn/xgboost, not torch)
+torch
+scipy

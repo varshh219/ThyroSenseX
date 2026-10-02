@@ -1,0 +1,17 @@
+{
+  "SYNTHETIC": true,
+  "note": "Simulated data for pipeline stress-testing; not patient data.",
+  "subjects": 1500,
+  "rows": 3793,
+  "seed": 7,
+  "class_counts": {
+    "0": 1936,
+    "1": 1089,
+    "2": 768
+  },
+  "sites": {
+    "A": 1764,
+    "B": 1345,
+    "C": 684
+  }
+}

@@ -1,0 +1,480 @@
+{
+  "data": {
+    "rows_raw": 3783,
+    "duplicates_removed": 0,
+    "rows_clean": 3783,
+    "class_counts": {
+      "Normal": 2021,
+      "Hypothyroidism": 1086,
+      "Hyperthyroidism": 676
+    },
+    "constant_columns_dropped": [],
+    "active_columns": [
+      "age",
+      "gender",
+      "weight",
+      "has_dark_circle",
+      "facial_swelling",
+      "puffy_eyes",
+      "dry_skin_visible",
+      "goiter_visible",
+      "coarse_facial_features",
+      "tired_expression",
+      "hair_loss",
+      "weight_gain",
+      "pale_skin",
+      "pitch_mean",
+      "pitch_std",
+      "pitch_min",
+      "pitch_max",
+      "energy_mean",
+      "energy_std",
+      "zcr_mean",
+      "mfcc_mean_1",
+      "mfcc_mean_2",
+      "mfcc_mean_3",
+      "thermal_mean",
+      "thermal_std",
+      "thermal_max",
+      "thermal_min",
+      "thermal_range",
+      "thermal_forehead",
+      "thermal_mid",
+      "thermal_chin_neck",
+      "thermal_left_mean",
+      "thermal_right_mean",
+      "thermal_lr_asymmetry",
+      "thermal_centre",
+      "thermal_hot_ratio",
+      "thermal_grad_v",
+      "thermal_grad_h"
+    ]
+  },
+  "split": {
+    "dev": 3029,
+    "test": 754,
+    "seed": 42
+  },
+  "hyperparameters": {
+    "rf": {
+      "n_estimators": 400,
+      "max_depth": 14,
+      "min_samples_split": 4,
+      "class_weight": "balanced",
+      "n_jobs": -1,
+      "random_state": 42
+    },
+    "xgb": {
+      "n_estimators": 400,
+      "max_depth": 6,
+      "learning_rate": 0.03,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "objective": "multi:softprob",
+      "eval_metric": "mlogloss",
+      "n_jobs": -1,
+      "random_state": 42
+    },
+    "cnn": {
+      "channels": [
+        32,
+        64,
+        64
+      ],
+      "kernel": 3,
+      "fc": 64,
+      "dropout": 0.3,
+      "lr": 0.001,
+      "weight_decay": 0.0001,
+      "batch_size": 64,
+      "max_epochs": 300,
+      "patience": 25
+    }
+  },
+  "caveat": "Splits are subject-level. The training data is synthetic/simulated; results are not clinical performance.",
+  "cv_5fold_dev": {
+    "rf": {
+      "accuracy": [
+        0.8933,
+        0.0062
+      ],
+      "precision_macro": [
+        0.8961,
+        0.0112
+      ],
+      "recall_macro": [
+        0.8562,
+        0.014
+      ],
+      "f1_macro": [
+        0.8729,
+        0.0111
+      ],
+      "auc_ovr_macro": [
+        0.9728,
+        0.0076
+      ]
+    },
+    "xgb": {
+      "accuracy": [
+        0.9528,
+        0.0088
+      ],
+      "precision_macro": [
+        0.9471,
+        0.0059
+      ],
+      "recall_macro": [
+        0.9342,
+        0.0144
+      ],
+      "f1_macro": [
+        0.9401,
+        0.0093
+      ],
+      "auc_ovr_macro": [
+        0.9904,
+        0.0062
+      ]
+    },
+    "cnn": {
+      "accuracy": [
+        0.8345,
+        0.0155
+      ],
+      "precision_macro": [
+        0.8293,
+        0.0134
+      ],
+      "recall_macro": [
+        0.7922,
+        0.029
+      ],
+      "f1_macro": [
+        0.8066,
+        0.0199
+      ],
+      "auc_ovr_macro": [
+        0.9398,
+        0.0046
+      ]
+    },
+    "fusion_equal": {
+      "accuracy": [
+        0.9377,
+        0.0069
+      ],
+      "precision_macro": [
+        0.9388,
+        0.0109
+      ],
+      "recall_macro": [
+        0.909,
+        0.0157
+      ],
+      "f1_macro": [
+        0.9222,
+        0.0127
+      ],
+      "auc_ovr_macro": [
+        0.9856,
+        0.006
+      ]
+    }
+  },
+  "test": {
+    "rf": {
+      "accuracy": 0.8873,
+      "precision_macro": 0.9165,
+      "recall_macro": 0.8602,
+      "f1_macro": 0.8816,
+      "auc_ovr_macro": 0.9793,
+      "sensitivity": {
+        "Normal": 0.9783,
+        "Hypothyroidism": 0.7967,
+        "Hyperthyroidism": 0.8056
+      },
+      "specificity": {
+        "Normal": 0.8104,
+        "Hypothyroidism": 0.9903,
+        "Hyperthyroidism": 0.9885
+      },
+      "confusion_matrix": [
+        [
+          361,
+          2,
+          6
+        ],
+        [
+          48,
+          192,
+          1
+        ],
+        [
+          25,
+          3,
+          116
+        ]
+      ],
+      "accuracy_95ci": [
+        0.8634,
+        0.9125
+      ],
+      "f1_macro_95ci": [
+        0.8559,
+        0.908
+      ]
+    },
+    "xgb": {
+      "accuracy": 0.9469,
+      "precision_macro": 0.944,
+      "recall_macro": 0.9392,
+      "f1_macro": 0.9409,
+      "auc_ovr_macro": 0.9942,
+      "sensitivity": {
+        "Normal": 0.9783,
+        "Hypothyroidism": 0.9087,
+        "Hyperthyroidism": 0.9306
+      },
+      "specificity": {
+        "Normal": 0.9403,
+        "Hypothyroidism": 0.9942,
+        "Hyperthyroidism": 0.977
+      },
+      "confusion_matrix": [
+        [
+          361,
+          1,
+          7
+        ],
+        [
+          15,
+          219,
+          7
+        ],
+        [
+          8,
+          2,
+          134
+        ]
+      ],
+      "accuracy_95ci": [
+        0.931,
+        0.9629
+      ],
+      "f1_macro_95ci": [
+        0.9218,
+        0.9592
+      ]
+    },
+    "cnn": {
+      "accuracy": 0.813,
+      "precision_macro": 0.7997,
+      "recall_macro": 0.8135,
+      "f1_macro": 0.8059,
+      "auc_ovr_macro": 0.9415,
+      "sensitivity": {
+        "Normal": 0.7995,
+        "Hypothyroidism": 0.8423,
+        "Hyperthyroidism": 0.7986
+      },
+      "specificity": {
+        "Normal": 0.8597,
+        "Hypothyroidism": 0.9084,
+        "Hyperthyroidism": 0.9344
+      },
+      "confusion_matrix": [
+        [
+          295,
+          43,
+          31
+        ],
+        [
+          29,
+          203,
+          9
+        ],
+        [
+          25,
+          4,
+          115
+        ]
+      ],
+      "accuracy_95ci": [
+        0.7865,
+        0.8422
+      ],
+      "f1_macro_95ci": [
+        0.7769,
+        0.836
+      ]
+    },
+    "fusion": {
+      "accuracy": 0.9469,
+      "precision_macro": 0.944,
+      "recall_macro": 0.9392,
+      "f1_macro": 0.9409,
+      "auc_ovr_macro": 0.9942,
+      "sensitivity": {
+        "Normal": 0.9783,
+        "Hypothyroidism": 0.9087,
+        "Hyperthyroidism": 0.9306
+      },
+      "specificity": {
+        "Normal": 0.9403,
+        "Hypothyroidism": 0.9942,
+        "Hyperthyroidism": 0.977
+      },
+      "confusion_matrix": [
+        [
+          361,
+          1,
+          7
+        ],
+        [
+          15,
+          219,
+          7
+        ],
+        [
+          8,
+          2,
+          134
+        ]
+      ],
+      "accuracy_95ci": [
+        0.931,
+        0.9629
+      ],
+      "f1_macro_95ci": [
+        0.9218,
+        0.9592
+      ]
+    }
+  },
+  "fusion_weights": {
+    "rf": 0.0,
+    "xgb": 1.0,
+    "cnn": 0.0
+  },
+  "cnn_training": {
+    "epochs_run": 32,
+    "best_val_loss": 0.4588
+  },
+  "mcnemar_p_fusion_vs": {
+    "rf": 0.0,
+    "xgb": 1.0,
+    "cnn": 0.0
+  },
+  "ablation_xgb_cv5_dev": {
+    "demographics": {
+      "n_features": 3,
+      "accuracy": [
+        0.5128,
+        0.0058
+      ],
+      "f1_macro": [
+        0.4157,
+        0.0154
+      ]
+    },
+    "demographics+face": {
+      "n_features": 13,
+      "accuracy": [
+        0.6984,
+        0.0197
+      ],
+      "f1_macro": [
+        0.622,
+        0.0195
+      ]
+    },
+    "demographics+voice": {
+      "n_features": 13,
+      "accuracy": [
+        0.895,
+        0.0132
+      ],
+      "f1_macro": [
+        0.853,
+        0.0122
+      ]
+    },
+    "demographics+thermal": {
+      "n_features": 18,
+      "accuracy": [
+        0.781,
+        0.0143
+      ],
+      "f1_macro": [
+        0.7577,
+        0.0193
+      ]
+    },
+    "demographics+face+voice": {
+      "n_features": 23,
+      "accuracy": [
+        0.9192,
+        0.0068
+      ],
+      "f1_macro": [
+        0.8886,
+        0.0107
+      ]
+    },
+    "demographics+face+thermal": {
+      "n_features": 28,
+      "accuracy": [
+        0.8402,
+        0.0066
+      ],
+      "f1_macro": [
+        0.8166,
+        0.0184
+      ]
+    },
+    "demographics+voice+thermal": {
+      "n_features": 28,
+      "accuracy": [
+        0.9486,
+        0.0083
+      ],
+      "f1_macro": [
+        0.9353,
+        0.0056
+      ]
+    },
+    "demographics+face+voice+thermal": {
+      "n_features": 38,
+      "accuracy": [
+        0.9528,
+        0.0087
+      ],
+      "f1_macro": [
+        0.9401,
+        0.0094
+      ]
+    },
+    "face_only": {
+      "n_features": 10,
+      "accuracy": [
+        0.6917,
+        0.0078
+      ]
+    },
+    "voice_only": {
+      "n_features": 10,
+      "accuracy": [
+        0.7804,
+        0.0286
+      ]
+    },
+    "thermal_only": {
+      "n_features": 15,
+      "accuracy": [
+        0.7466,
+        0.0152
+      ]
+    }
+  }
+}
